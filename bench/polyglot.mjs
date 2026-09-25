@@ -87,11 +87,15 @@ function claude(args, input, cwd, env) {
     const timer = setTimeout(() => c.kill(), RUN_TIMEOUT);
     c.stdout.on('data', d => { out += d; });
     c.stderr.on('data', d => { err += d; });
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; clearTimeout(timer); res(v); } };
     c.on('close', (code) => {
-      clearTimeout(timer);
       let j = null; try { j = JSON.parse(out.trim().split('\n').pop()); } catch {}
-      res({ ms: Date.now() - t0, code, json: j, err: err.slice(-2000) });
+      done({ ms: Date.now() - t0, code, json: j, err: err.slice(-2000) });
     });
+    // A failed spawn (claude not on PATH) is recorded as this run's error instead of killing the queue.
+    c.on('error', (e) => done({ ms: Date.now() - t0, code: null, json: null, err: `spawn failed: ${e.message}` }));
+    c.stdin.on('error', () => {});
     c.stdin.end(input);
   });
 }

@@ -1,6 +1,6 @@
 {
   "name": "@cognitive-fab/polywatch",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Background trust review of code written by Claude Code",
   "type": "module",
   "bin": { "polywatch": "bin/polywatch.mjs" },

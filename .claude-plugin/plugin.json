@@ -1,7 +1,7 @@
 {
   "name": "polywatch",
   "displayName": "Polywatch",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A background bug hunter for code Claude writes. After each turn, a cheap reviewer from another model family (DeepSeek V4.1-Flash by default) reads the change, Claude Opus 5.5 checks the most serious claims against the code, and on your next prompt you see at most two ranked findings. Confirmed defects go back to Claude to fix. Your own real/false-alarm outcomes set the ranking weights.",
   "author": {
     "name": "jdubray",
