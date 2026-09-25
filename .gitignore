@@ -1,0 +1,4 @@
+.polywatch/
+node_modules/
+bench/out/
+bench-data/

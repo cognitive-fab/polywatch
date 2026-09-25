@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "What happens after Claude edits code",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1657,
+      808
+    ],
+    "column_fit": "spread",
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "the answer’s path"
+        },
+        "return": {
+          "label": "reply"
+        },
+        "dashed": {
+          "label": "async or planned"
+        },
+        "security": {
+          "label": "crosses a boundary"
+        },
+        "default": {
+          "label": "message"
+        }
+      }
+    },
+    "views": [
+      {
+        "id": "answer",
+        "label": "What happens after Claude edits code",
+        "focus": [
+          "worker",
+          "deliver"
+        ],
+        "note": "It records each edit, starts a detached review when the turn ends, and shows the result on the next prompt. Claude never waits for it."
+      },
+      {
+        "id": "machine",
+        "label": "Your machine",
+        "focus": [
+          "hooks",
+          "worker",
+          "results",
+          "deliver"
+        ],
+        "note": "Runs on the developer's machine; code leaves it only in the two model calls"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "claude-code",
+      "type": "frontend",
+      "label": "Claude Code"
+    },
+    {
+      "id": "hooks",
+      "type": "frontend",
+      "label": "Hook entry"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Review worker"
+    },
+    {
+      "id": "reviewer",
+      "type": "external",
+      "label": "DeepSeek Flash"
+    },
+    {
+      "id": "adjudicator",
+      "type": "external",
+      "label": "Claude Opus 5.5"
+    },
+    {
+      "id": "results",
+      "type": "database",
+      "label": "Review results"
+    },
+    {
+      "id": "deliver",
+      "type": "backend",
+      "label": "Delivery"
+    }
+  ],
+  "segments": [
+    {
+      "from": 170,
+      "to": 210,
+      "label": "during the turn"
+    },
+    {
+      "from": 236,
+      "to": 316,
+      "label": "turn ends"
+    },
+    {
+      "from": 342,
+      "to": 542,
+      "label": "in the background"
+    },
+    {
+      "from": 568,
+      "to": 728,
+      "label": "next prompt"
+    }
+  ],
+  "messages": [
+    {
+      "id": "s1",
+      "from": "claude-code",
+      "to": "hooks",
+      "y": 190,
+      "label": "PostToolUse: file edited · spawn",
+      "note": "Hook JSON with the tool name, file path, and old and new text. The hook appends the edit to the turn log."
+    },
+    {
+      "id": "s2",
+      "from": "claude-code",
+      "to": "hooks",
+      "y": 256,
+      "label": "Stop · spawn",
+      "note": "Hook JSON with the session id and transcript path. The hook writes the job (edits plus the last user request)."
+    },
+    {
+      "id": "s3",
+      "from": "hooks",
+      "to": "worker",
+      "y": 296,
+      "label": "spawn, detached · spawn",
+      "variant": "dashed"
+    },
+    {
+      "id": "s4",
+      "from": "worker",
+      "to": "reviewer",
+      "y": 362,
+      "label": "list defects · HTTPS",
+      "variant": "security"
+    },
+    {
+      "id": "s5",
+      "from": "reviewer",
+      "to": "worker",
+      "y": 402,
+      "label": "issues as JSON",
+      "variant": "return"
+    },
+    {
+      "id": "s6",
+      "from": "worker",
+      "to": "adjudicator",
+      "y": 442,
+      "label": "check claim (up to 2) · HTTPS",
+      "variant": "security"
+    },
+    {
+      "id": "s7",
+      "from": "adjudicator",
+      "to": "worker",
+      "y": 482,
+      "label": "holds + evidence",
+      "variant": "return"
+    },
+    {
+      "id": "s8",
+      "from": "worker",
+      "to": "results",
+      "y": 522,
+      "label": "write ranked result · file"
+    },
+    {
+      "id": "s9",
+      "from": "claude-code",
+      "to": "hooks",
+      "y": 588,
+      "label": "UserPromptSubmit · spawn",
+      "note": "Hook JSON with the session id and the user's new prompt."
+    },
+    {
+      "id": "s10",
+      "from": "hooks",
+      "to": "deliver",
+      "y": 628,
+      "label": "collect results"
+    },
+    {
+      "id": "s11",
+      "from": "deliver",
+      "to": "results",
+      "y": 668,
+      "label": "read undelivered · file"
+    },
+    {
+      "id": "s12",
+      "from": "hooks",
+      "to": "claude-code",
+      "y": 708,
+      "label": "top 2 + confirmed · stdio"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "claude-code",
+      "from": 185,
+      "to": 714,
+      "type": "frontend"
+    },
+    {
+      "participant": "hooks",
+      "from": 185,
+      "to": 714,
+      "type": "frontend"
+    },
+    {
+      "participant": "worker",
+      "from": 291,
+      "to": 528,
+      "type": "backend"
+    },
+    {
+      "participant": "reviewer",
+      "from": 357,
+      "to": 408,
+      "type": "external"
+    },
+    {
+      "participant": "adjudicator",
+      "from": 437,
+      "to": 488,
+      "type": "external"
+    },
+    {
+      "participant": "results",
+      "from": 517,
+      "to": 674,
+      "type": "database"
+    },
+    {
+      "participant": "deliver",
+      "from": 623,
+      "to": 674,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The short answer",
+      "items": [
+        "It records each edit, starts a detached review when the turn ends, and shows the result on the next prompt",
+        "Claude never waits for it"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Not shown here",
+      "items": [
+        "The turn log, router, ranker, settings and ledger, which the hooks and worker use along the way, and the tests, which run only on HARD changes",
+        "Connected but out of scope: Turn log and jobs, Settings, Router, Project tests, Ranker, Ledger"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What it guarantees",
+      "items": [
+        "Claude never waits for a review: the Stop hook starts a detached worker and returns; results arrive on the next prompt",
+        "Only confirmed findings go back to Claude, at most two turns in a row: an unconfirmed claim sent as an instruction would have Claude fix code that may be correct, and a cap stops fix loops"
+      ]
+    }
+  ]
+}

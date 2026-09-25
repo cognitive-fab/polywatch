@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Measuring on real project history",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "machine",
+        "label": "Your machine",
+        "focus": [
+          "worker",
+          "replay-git"
+        ],
+        "note": "Runs on the developer's machine; code leaves it only in the two model calls"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "replay-git",
+      "type": "backend",
+      "label": "Git replay",
+      "pos": [
+        60,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "SZZ over fix commits"
+    },
+    {
+      "id": "gitrepo",
+      "type": "external",
+      "label": "Project history",
+      "pos": [
+        380,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "git log and blame"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Review worker",
+      "pos": [
+        380,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "detached process"
+    },
+    {
+      "id": "adjudicator",
+      "type": "external",
+      "label": "Claude Opus 5.5",
+      "pos": [
+        700,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "claim checker"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Your machine: Runs on the developer's machine; code leaves it only in the two model calls",
+      "wraps": [
+        "worker",
+        "replay-git"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "worker--adjudicator",
+      "from": "worker",
+      "to": "adjudicator",
+      "label": "check one claim · HTTPS",
+      "labelAt": [
+        615,
+        63
+      ],
+      "variant": "security"
+    },
+    {
+      "id": "replay-git--gitrepo",
+      "from": "replay-git",
+      "to": "gitrepo",
+      "label": "read commits and blame · spawn",
+      "labelAt": [
+        295,
+        63
+      ]
+    },
+    {
+      "id": "replay-git--worker",
+      "from": "replay-git",
+      "to": "worker",
+      "label": "review each commit",
+      "labelAt": [
+        355,
+        124
+      ]
+    },
+    {
+      "id": "replay-git--adjudicator",
+      "from": "replay-git",
+      "to": "adjudicator",
+      "label": "judge a match · HTTPS",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          135,
+          16
+        ],
+        [
+          775,
+          16
+        ]
+      ],
+      "labelAt": [
+        455,
+        16
+      ],
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The short answer",
+      "items": [
+        "The git replay labels each commit buggy if a later fix commit changed its lines, runs the same worker on it, and has Opus judge whether any finding names the bug that was fixed"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Not shown here",
+      "items": [
+        "The hooks and delivery, which the replay bypasses by calling the worker directly",
+        "Connected but out of scope: Hook entry, Turn log and jobs, Settings, Router, DeepSeek Flash, Project tests"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Risks",
+      "items": [
+        "Git history is a noisy answer key: 'clean' only means no fix commit touched the lines; some confirmed findings on clean commits may be real bugs nobody fixed"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Measuring on planted bugs",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "machine",
+        "label": "Your machine",
+        "focus": [
+          "worker",
+          "replay-sysmo"
+        ],
+        "note": "Runs on the developer's machine; code leaves it only in the two model calls"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "replay-sysmo",
+      "type": "backend",
+      "label": "sysmobench replay",
+      "pos": [
+        60,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "specs and mutants"
+    },
+    {
+      "id": "sysmobench",
+      "type": "external",
+      "label": "sysmobench",
+      "pos": [
+        380,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "checker and ledgers"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Review worker",
+      "pos": [
+        380,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "detached process"
+    },
+    {
+      "id": "adjudicator",
+      "type": "external",
+      "label": "Claude Opus 5.5",
+      "pos": [
+        700,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "claim checker"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Your machine: Runs on the developer's machine; code leaves it only in the two model calls",
+      "wraps": [
+        "worker",
+        "replay-sysmo"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "worker--adjudicator",
+      "from": "worker",
+      "to": "adjudicator",
+      "label": "check one claim · HTTPS",
+      "labelAt": [
+        615,
+        63
+      ],
+      "variant": "security"
+    },
+    {
+      "id": "replay-sysmo--sysmobench",
+      "from": "replay-sysmo",
+      "to": "sysmobench",
+      "label": "read specs and mutants · file",
+      "labelAt": [
+        295,
+        63
+      ]
+    },
+    {
+      "id": "replay-sysmo--worker",
+      "from": "replay-sysmo",
+      "to": "worker",
+      "label": "review each spec",
+      "labelAt": [
+        350,
+        124
+      ]
+    },
+    {
+      "id": "replay-sysmo--adjudicator",
+      "from": "replay-sysmo",
+      "to": "adjudicator",
+      "label": "judge a match · HTTPS",
+      "fromSide": "top",
+      "toSide": "top",
+      "via": [
+        [
+          135,
+          16
+        ],
+        [
+          775,
+          16
+        ]
+      ],
+      "labelAt": [
+        455,
+        16
+      ],
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The short answer",
+      "items": [
+        "The sysmobench replay reviews specifications a model checker has verified, and copies with one bug planted",
+        "Opus is shown the planted diff and says whether a finding names it",
+        "The verified specs count the false alarms"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Not shown here",
+      "items": [
+        "The hooks and delivery, which the replay bypasses by calling the worker directly",
+        "Connected but out of scope: Hook entry, Turn log and jobs, Settings, Router, DeepSeek Flash, Project tests"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What it guarantees",
+      "items": [
+        "On sysmobench, 104 of 106 planted bugs the checker catches were confirmed and ranked first: the answer key is the planted diff; on small systems 1 of 158 correct specs got a confirmed finding, on etcd 4 of 15 with the request"
+      ]
+    }
+  ]
+}

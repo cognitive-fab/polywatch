@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "What happens to a claim",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1493,
+      728
+    ],
+    "column_fit": "spread",
+    "legend": {
+      "entries": {
+        "emphasis": {
+          "label": "the answer’s path"
+        },
+        "return": {
+          "label": "reply"
+        },
+        "dashed": {
+          "label": "async or planned"
+        },
+        "security": {
+          "label": "crosses a boundary"
+        },
+        "default": {
+          "label": "message"
+        }
+      }
+    },
+    "views": [
+      {
+        "id": "answer",
+        "label": "What happens to a claim",
+        "focus": [
+          "adjudicator",
+          "ranker"
+        ],
+        "note": "The reviewer's verdict is ignored. Opus checks the most serious claims and refuted ones are dropped. The ranker scores the rest by how ofte…"
+      },
+      {
+        "id": "machine",
+        "label": "Your machine",
+        "focus": [
+          "worker",
+          "ranker",
+          "results",
+          "ledger",
+          "deliver"
+        ],
+        "note": "Runs on the developer's machine; code leaves it only in the two model calls"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Review worker"
+    },
+    {
+      "id": "reviewer",
+      "type": "external",
+      "label": "DeepSeek Flash"
+    },
+    {
+      "id": "adjudicator",
+      "type": "external",
+      "label": "Claude Opus 5.5"
+    },
+    {
+      "id": "ranker",
+      "type": "backend",
+      "label": "Ranker"
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Ledger"
+    },
+    {
+      "id": "results",
+      "type": "database",
+      "label": "Review results"
+    },
+    {
+      "id": "deliver",
+      "type": "backend",
+      "label": "Delivery"
+    }
+  ],
+  "segments": [
+    {
+      "from": 170,
+      "to": 250,
+      "label": "review"
+    },
+    {
+      "from": 276,
+      "to": 356,
+      "label": "confirm"
+    },
+    {
+      "from": 382,
+      "to": 542,
+      "label": "rank"
+    },
+    {
+      "from": 568,
+      "to": 648,
+      "label": "show"
+    }
+  ],
+  "messages": [
+    {
+      "id": "s1",
+      "from": "worker",
+      "to": "reviewer",
+      "y": 190,
+      "label": "list defects · HTTPS",
+      "variant": "security"
+    },
+    {
+      "id": "s2",
+      "from": "reviewer",
+      "to": "worker",
+      "y": 230,
+      "label": "verdict + issues",
+      "variant": "return",
+      "note": "The verdict is stored and ignored. The issues are the candidates."
+    },
+    {
+      "id": "s3",
+      "from": "worker",
+      "to": "adjudicator",
+      "y": 296,
+      "label": "check top claim · HTTPS",
+      "variant": "security",
+      "note": "High and medium issues, most severe first, up to two, within the per-turn budget."
+    },
+    {
+      "id": "s4",
+      "from": "adjudicator",
+      "to": "worker",
+      "y": 336,
+      "label": "yes / no / uncertain",
+      "variant": "return",
+      "note": "No drops the claim. Yes makes it a confirmed finding with evidence."
+    },
+    {
+      "id": "s5",
+      "from": "worker",
+      "to": "ranker",
+      "y": 402,
+      "label": "score findings"
+    },
+    {
+      "id": "s6",
+      "from": "ranker",
+      "to": "ledger",
+      "y": 442,
+      "label": "read outcomes · file"
+    },
+    {
+      "id": "s7",
+      "from": "ledger",
+      "to": "ranker",
+      "y": 482,
+      "label": "precision per kind",
+      "variant": "return"
+    },
+    {
+      "id": "s8",
+      "from": "ranker",
+      "to": "worker",
+      "y": 522,
+      "label": "findings, best first",
+      "variant": "return"
+    },
+    {
+      "id": "s9",
+      "from": "worker",
+      "to": "results",
+      "y": 588,
+      "label": "top 2 above 0.25 · file"
+    },
+    {
+      "id": "s10",
+      "from": "deliver",
+      "to": "results",
+      "y": 628,
+      "label": "read on next prompt · file",
+      "note": "The user sees the shown findings; Claude gets only the confirmed ones, at most two turns in a row."
+    }
+  ],
+  "activations": [
+    {
+      "participant": "worker",
+      "from": 185,
+      "to": 594,
+      "type": "backend"
+    },
+    {
+      "participant": "reviewer",
+      "from": 185,
+      "to": 236,
+      "type": "external"
+    },
+    {
+      "participant": "adjudicator",
+      "from": 291,
+      "to": 342,
+      "type": "external"
+    },
+    {
+      "participant": "ranker",
+      "from": 397,
+      "to": 528,
+      "type": "backend"
+    },
+    {
+      "participant": "ledger",
+      "from": 437,
+      "to": 488,
+      "type": "database"
+    },
+    {
+      "participant": "results",
+      "from": 583,
+      "to": 634,
+      "type": "database"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The short answer",
+      "items": [
+        "The reviewer's verdict is ignored",
+        "Opus checks the most serious claims and refuted ones are dropped",
+        "The ranker scores the rest by how often that kind of finding has been real"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Not shown here",
+      "items": [
+        "The router and tests, which only decide whether the project's tests run, and the hooks, which only carry the result",
+        "Connected but out of scope: Hook entry, Turn log and jobs, Settings, Router, Project tests, polywatch CLI"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Doctrine",
+      "items": [
+        "The reviewer's overall verdict is ignored: on 50 BaanBaan commits it rejected 24 of 25 later-fixed and 25 of 25 clean ones; a score built on it separated them no better than chance (AUC 0.48)"
+      ]
+    }
+  ]
+}

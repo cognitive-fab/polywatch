@@ -1,0 +1,14 @@
+{
+  "name": "polywatch",
+  "description": "Local marketplace for polywatch, a background bug hunter for code written by Claude Code.",
+  "owner": {
+    "name": "cognitive-fab"
+  },
+  "plugins": [
+    {
+      "name": "polywatch",
+      "source": "./",
+      "description": "Background bug hunting on code Claude writes: cheap review, Opus confirmation, top findings only."
+    }
+  ]
+}

@@ -1,0 +1,907 @@
+{
+  "schema_version": 1,
+  "system": {
+    "name": "polywatch",
+    "purpose": "A background bug hunter for the code Claude Code writes: a cheap reviewer lists defects, Opus confirms the serious ones, and the user sees at most two.",
+    "sources": [
+      {
+        "kind": "code",
+        "ref": "bin/, src/, hooks/, skills/, scripts/",
+        "note": "read at version 0.2.0"
+      },
+      {
+        "kind": "document",
+        "ref": "README.md"
+      }
+    ]
+  },
+  "boundaries": [
+    {
+      "id": "machine",
+      "kind": "trust",
+      "label": "Your machine",
+      "claim": "Runs on the developer's machine; code leaves it only in the two model calls",
+      "contains": [
+        "hooks",
+        "turnlog",
+        "config",
+        "worker",
+        "router",
+        "tests",
+        "ranker",
+        "results",
+        "ledger",
+        "deliver",
+        "cli",
+        "skill",
+        "replay-git",
+        "replay-sysmo"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "kind": "cli",
+      "detail": "the host session",
+      "responsibility": "Runs the coding turns and calls polywatch's hooks at each event."
+    },
+    {
+      "id": "hooks",
+      "name": "Hook entry",
+      "kind": "cli",
+      "detail": "bin/polywatch.mjs hook",
+      "responsibility": "Handles each hook event in under a second and returns control to Claude Code.",
+      "evidence": [
+        {
+          "path": "hooks/hooks.json"
+        },
+        {
+          "path": "bin/polywatch.mjs"
+        }
+      ]
+    },
+    {
+      "id": "turnlog",
+      "name": "Turn log and jobs",
+      "kind": "file-store",
+      "detail": ".polywatch/turns, jobs",
+      "responsibility": "Holds the edits of the current turn and the job the worker will review.",
+      "evidence": [
+        {
+          "path": "bin/polywatch.mjs"
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "name": "Settings",
+      "kind": "config",
+      "detail": ".polywatch.json",
+      "responsibility": "Supplies models, budgets, exclusions and ranking thresholds, merged over defaults.",
+      "evidence": [
+        {
+          "path": "src/config.mjs"
+        }
+      ]
+    },
+    {
+      "id": "worker",
+      "name": "Review worker",
+      "kind": "worker",
+      "detail": "detached process",
+      "responsibility": "Runs one review pipeline per turn, from routing to ranked result.",
+      "evidence": [
+        {
+          "path": "src/worker.mjs"
+        }
+      ]
+    },
+    {
+      "id": "router",
+      "name": "Router",
+      "kind": "library",
+      "detail": "EASY, MEDIUM, HARD",
+      "responsibility": "Labels a change EASY, MEDIUM or HARD from its size and the kind of code it touches.",
+      "evidence": [
+        {
+          "path": "src/router.mjs"
+        }
+      ]
+    },
+    {
+      "id": "reviewer",
+      "name": "DeepSeek Flash",
+      "kind": "model-provider",
+      "detail": "reviewer",
+      "responsibility": "Lists specific, checkable defects in the changed files.",
+      "evidence": [
+        {
+          "path": "src/reviewers/deepseek.mjs"
+        },
+        {
+          "path": "src/prompts.mjs"
+        }
+      ]
+    },
+    {
+      "id": "adjudicator",
+      "name": "Claude Opus 5.5",
+      "kind": "model-provider",
+      "detail": "claim checker",
+      "responsibility": "Decides whether one claimed defect holds against the cited code and the request.",
+      "evidence": [
+        {
+          "path": "src/reviewers/anthropic.mjs"
+        },
+        {
+          "path": "src/prompts.mjs"
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "name": "Project tests",
+      "kind": "service",
+      "detail": "testCommand, HARD only",
+      "responsibility": "Runs the project's own test command on hard changes when one is configured.",
+      "evidence": [
+        {
+          "path": "src/worker.mjs"
+        }
+      ]
+    },
+    {
+      "id": "ranker",
+      "name": "Ranker",
+      "kind": "library",
+      "detail": "bucket precision",
+      "responsibility": "Scores each finding by how often findings of its kind turned out real.",
+      "evidence": [
+        {
+          "path": "src/rank.mjs"
+        }
+      ]
+    },
+    {
+      "id": "results",
+      "name": "Review results",
+      "kind": "file-store",
+      "detail": ".polywatch/results",
+      "responsibility": "Holds one result per reviewed turn until it is delivered.",
+      "evidence": [
+        {
+          "path": "src/worker.mjs"
+        }
+      ]
+    },
+    {
+      "id": "ledger",
+      "name": "Ledger",
+      "kind": "file-store",
+      "detail": ".polywatch/ledger.jsonl",
+      "responsibility": "Keeps every review and every recorded outcome, in order, for calibration.",
+      "evidence": [
+        {
+          "path": "src/worker.mjs"
+        },
+        {
+          "path": "src/rank.mjs"
+        }
+      ]
+    },
+    {
+      "id": "deliver",
+      "name": "Delivery",
+      "kind": "library",
+      "detail": "next prompt",
+      "responsibility": "Decides what the user sees and what goes back to Claude.",
+      "evidence": [
+        {
+          "path": "src/deliver.mjs"
+        }
+      ]
+    },
+    {
+      "id": "cli",
+      "name": "polywatch CLI",
+      "kind": "cli",
+      "detail": "report, outcome, review",
+      "responsibility": "Lets a person read reports, review files by hand and record outcomes.",
+      "evidence": [
+        {
+          "path": "bin/polywatch.mjs"
+        }
+      ]
+    },
+    {
+      "id": "skill",
+      "name": "Findings skill",
+      "kind": "workflow",
+      "detail": "/trust",
+      "responsibility": "Tells Claude how to present findings and record what the user says about them.",
+      "evidence": [
+        {
+          "path": "skills/trust/SKILL.md"
+        }
+      ]
+    },
+    {
+      "id": "replay-git",
+      "name": "Git replay",
+      "kind": "workflow",
+      "detail": "SZZ over fix commits",
+      "responsibility": "Replays a repository's commits through the worker and scores findings against later fixes.",
+      "evidence": [
+        {
+          "path": "scripts/replay-git.mjs"
+        }
+      ]
+    },
+    {
+      "id": "replay-sysmo",
+      "name": "sysmobench replay",
+      "kind": "workflow",
+      "detail": "specs and mutants",
+      "responsibility": "Runs the worker on checker-labelled specifications and planted bugs.",
+      "evidence": [
+        {
+          "path": "scripts/replay-sysmo.mjs"
+        }
+      ]
+    },
+    {
+      "id": "gitrepo",
+      "name": "Project history",
+      "kind": "external-service",
+      "detail": "git log and blame",
+      "responsibility": "Supplies commits and the fix commits that later changed them."
+    },
+    {
+      "id": "sysmobench",
+      "name": "sysmobench",
+      "kind": "external-service",
+      "detail": "checker and ledgers",
+      "responsibility": "Supplies specifications whose correctness a model checker has decided."
+    }
+  ],
+  "relations": [
+    {
+      "from": "claude-code",
+      "to": "hooks",
+      "mechanism": "spawn",
+      "summary": "runs a hook per event",
+      "what_crosses": "Hook JSON on stdin: the tool, file path, old and new text, session id and transcript path."
+    },
+    {
+      "from": "hooks",
+      "to": "turnlog",
+      "mechanism": "file",
+      "summary": "record the edit or job",
+      "what_crosses": "Each Edit, Write or MultiEdit of the turn; at Stop, a job with the edits and the last user request."
+    },
+    {
+      "from": "hooks",
+      "to": "worker",
+      "mechanism": "spawn",
+      "summary": "start review, detached",
+      "what_crosses": "The job file path. The Stop hook returns at once; Claude never waits on the review.",
+      "synchronous": false
+    },
+    {
+      "from": "hooks",
+      "to": "claude-code",
+      "mechanism": "stdio",
+      "summary": "findings for you and Claude",
+      "what_crosses": "systemMessage for the user (top findings or 'nothing worth your attention'); additionalContext for Claude with confirmed findings only."
+    },
+    {
+      "from": "hooks",
+      "to": "deliver",
+      "mechanism": "in-process call",
+      "summary": "collect results",
+      "what_crosses": "The session id and settings, at UserPromptSubmit and SessionStart."
+    },
+    {
+      "from": "worker",
+      "to": "turnlog",
+      "mechanism": "file",
+      "summary": "read the job",
+      "what_crosses": "Edits, file snapshots and the request text."
+    },
+    {
+      "from": "worker",
+      "to": "config",
+      "mechanism": "in-process call",
+      "summary": "load settings",
+      "what_crosses": "Models, keys' environment names, budget, exclusions, confirm mode, thresholds."
+    },
+    {
+      "from": "worker",
+      "to": "router",
+      "mechanism": "in-process call",
+      "summary": "classify the change",
+      "what_crosses": "Changed lines and file text in; a tier and its reason out."
+    },
+    {
+      "from": "worker",
+      "to": "reviewer",
+      "mechanism": "https",
+      "summary": "list defects",
+      "what_crosses": "Contents of changed files (excluded files never sent) and the request text; back comes JSON with issues, each with file, place, severity and claim.",
+      "crosses": "machine"
+    },
+    {
+      "from": "worker",
+      "to": "tests",
+      "mechanism": "spawn",
+      "summary": "run testCommand",
+      "what_crosses": "The test command, on HARD changes only; exit status and output tail back."
+    },
+    {
+      "from": "worker",
+      "to": "adjudicator",
+      "mechanism": "https",
+      "summary": "check one claim",
+      "what_crosses": "One claim, the cited code or windows around it, and the request when short; back comes holds yes, no or uncertain with evidence.",
+      "crosses": "machine"
+    },
+    {
+      "from": "worker",
+      "to": "ranker",
+      "mechanism": "in-process call",
+      "summary": "score findings",
+      "what_crosses": "Findings that survived confirmation; back comes each with a score, best first."
+    },
+    {
+      "from": "ranker",
+      "to": "ledger",
+      "mechanism": "file",
+      "summary": "read outcomes",
+      "what_crosses": "Past findings and the real or false outcomes recorded for them."
+    },
+    {
+      "from": "worker",
+      "to": "results",
+      "mechanism": "file",
+      "summary": "write the result",
+      "what_crosses": "Tier, findings, the top ones shown, confirmed issues, refuted count, cost and notes."
+    },
+    {
+      "from": "worker",
+      "to": "ledger",
+      "mechanism": "file",
+      "summary": "append the review",
+      "what_crosses": "The same result, kept after delivery for calibration."
+    },
+    {
+      "from": "deliver",
+      "to": "results",
+      "mechanism": "file",
+      "summary": "read undelivered results",
+      "what_crosses": "Results for this session not yet shown; marked delivered afterwards."
+    },
+    {
+      "from": "cli",
+      "to": "ledger",
+      "mechanism": "file",
+      "summary": "record an outcome",
+      "what_crosses": "Review id, finding number and real or false."
+    },
+    {
+      "from": "cli",
+      "to": "results",
+      "mechanism": "file",
+      "summary": "read for a report",
+      "what_crosses": "Recent results with findings and evidence."
+    },
+    {
+      "from": "claude-code",
+      "to": "skill",
+      "mechanism": "manual",
+      "summary": "loads when asked",
+      "what_crosses": "The user's question about findings or an outcome to record."
+    },
+    {
+      "from": "skill",
+      "to": "cli",
+      "mechanism": "spawn",
+      "summary": "run report or outcome",
+      "what_crosses": "The report command, or an outcome for one finding."
+    },
+    {
+      "from": "replay-git",
+      "to": "gitrepo",
+      "mechanism": "spawn",
+      "summary": "read commits and blame",
+      "what_crosses": "Commit diffs, file versions and the lines each fix changed."
+    },
+    {
+      "from": "replay-git",
+      "to": "worker",
+      "mechanism": "in-process call",
+      "summary": "review each commit",
+      "what_crosses": "A job built from one commit's diff and message."
+    },
+    {
+      "from": "replay-git",
+      "to": "adjudicator",
+      "mechanism": "https",
+      "summary": "judge a match",
+      "what_crosses": "Reviewer issues and the later fix diff; back comes which issue, if any, is the fixed bug.",
+      "crosses": "machine"
+    },
+    {
+      "from": "replay-sysmo",
+      "to": "sysmobench",
+      "mechanism": "file",
+      "summary": "read specs and mutants",
+      "what_crosses": "Spec files, mutant files, their source specs and the checker's verdicts."
+    },
+    {
+      "from": "replay-sysmo",
+      "to": "worker",
+      "mechanism": "in-process call",
+      "summary": "review each spec",
+      "what_crosses": "A job that writes the spec as spec.js, with the study's task prompt as the request."
+    },
+    {
+      "from": "replay-sysmo",
+      "to": "adjudicator",
+      "mechanism": "https",
+      "summary": "judge a match",
+      "what_crosses": "The planted diff and the reviewer's issues; back comes which issue, if any, names the planted bug.",
+      "crosses": "machine"
+    }
+  ],
+  "facts": [
+    {
+      "id": "never-blocks",
+      "kind": "guarantee",
+      "claim": "Claude never waits for a review",
+      "because": "the Stop hook starts a detached worker and returns; results arrive on the next prompt"
+    },
+    {
+      "id": "verdict-ignored",
+      "kind": "doctrine",
+      "claim": "The reviewer's overall verdict is ignored",
+      "because": "on 50 BaanBaan commits it rejected 24 of 25 later-fixed and 25 of 25 clean ones; a score built on it separated them no better than chance (AUC 0.48)"
+    },
+    {
+      "id": "refuted-dropped",
+      "kind": "guarantee",
+      "claim": "A claim Opus refutes is never shown",
+      "because": "refuted claims are removed before ranking"
+    },
+    {
+      "id": "top-two",
+      "kind": "constraint",
+      "claim": "At most two findings are shown per turn, and only above a score of 0.25",
+      "because": "the reviewer lists about three issues per change; most are not worth a person's attention"
+    },
+    {
+      "id": "confirmed-to-claude",
+      "kind": "guarantee",
+      "claim": "Only confirmed findings go back to Claude, at most two turns in a row",
+      "because": "an unconfirmed claim sent as an instruction would have Claude fix code that may be correct, and a cap stops fix loops"
+    },
+    {
+      "id": "outcomes-weights",
+      "kind": "doctrine",
+      "claim": "Recorded outcomes set the ranking",
+      "because": "each kind of finding starts from a prior precision worth four outcomes; every real or false the user records moves it"
+    },
+    {
+      "id": "excluded",
+      "kind": "guarantee",
+      "claim": "Excluded files never leave the machine",
+      "because": ".env, keys, *secret*, *credential* and node_modules are dropped before the reviewer prompt is built"
+    },
+    {
+      "id": "budget",
+      "kind": "constraint",
+      "claim": "Spend stops at $0.50 per turn",
+      "because": "the worker checks cost before each confirmation"
+    },
+    {
+      "id": "request-cost",
+      "kind": "tradeoff",
+      "claim": "Opus sees the request only when it is short",
+      "because": "on sysmobench etcd the request removed 11 of 15 false alarms, but a 90 KB request made each check cost about $0.16; the default includes requests up to 20,000 characters"
+    },
+    {
+      "id": "providers-only-via",
+      "kind": "constraint",
+      "claim": "Only the worker calls the reviewer model",
+      "rule": {
+        "kind": "only-via",
+        "to": "reviewer",
+        "via": [
+          "worker"
+        ]
+      }
+    },
+    {
+      "id": "szz-noise",
+      "kind": "risk",
+      "claim": "Git history is a noisy answer key",
+      "because": "'clean' only means no fix commit touched the lines; some confirmed findings on clean commits may be real bugs nobody fixed"
+    },
+    {
+      "id": "sysmo-result",
+      "kind": "guarantee",
+      "claim": "On sysmobench, 104 of 106 planted bugs the checker catches were confirmed and ranked first",
+      "because": "the answer key is the planted diff; on small systems 1 of 158 correct specs got a confirmed finding, on etcd 4 of 15 with the request"
+    }
+  ],
+  "questions": [
+    {
+      "id": "turn",
+      "title": "What happens after Claude edits code",
+      "shape": "sequence",
+      "ask": "What does polywatch do between one Claude turn and the next prompt?",
+      "answer": "It records each edit, starts a detached review when the turn ends, and shows the result on the next prompt. Claude never waits for it.",
+      "involves": [
+        "claude-code",
+        "hooks",
+        "worker",
+        "reviewer",
+        "adjudicator",
+        "results",
+        "deliver"
+      ],
+      "highlight": [
+        "worker",
+        "deliver"
+      ],
+      "facts": [
+        "never-blocks",
+        "confirmed-to-claude"
+      ],
+      "steps": [
+        {
+          "from": "claude-code",
+          "to": "hooks",
+          "says": "PostToolUse: file edited",
+          "phase": "during the turn",
+          "note": "Hook JSON with the tool name, file path, and old and new text. The hook appends the edit to the turn log."
+        },
+        {
+          "from": "claude-code",
+          "to": "hooks",
+          "says": "Stop",
+          "phase": "turn ends",
+          "note": "Hook JSON with the session id and transcript path. The hook writes the job (edits plus the last user request)."
+        },
+        {
+          "from": "hooks",
+          "to": "worker",
+          "says": "spawn, detached",
+          "kind": "async",
+          "phase": "turn ends"
+        },
+        {
+          "from": "worker",
+          "to": "reviewer",
+          "says": "list defects",
+          "phase": "in the background"
+        },
+        {
+          "from": "reviewer",
+          "to": "worker",
+          "says": "issues as JSON",
+          "kind": "return",
+          "phase": "in the background"
+        },
+        {
+          "from": "worker",
+          "to": "adjudicator",
+          "says": "check claim (up to 2)",
+          "phase": "in the background"
+        },
+        {
+          "from": "adjudicator",
+          "to": "worker",
+          "says": "holds + evidence",
+          "kind": "return",
+          "phase": "in the background"
+        },
+        {
+          "from": "worker",
+          "to": "results",
+          "says": "write ranked result",
+          "phase": "in the background"
+        },
+        {
+          "from": "claude-code",
+          "to": "hooks",
+          "says": "UserPromptSubmit",
+          "phase": "next prompt",
+          "note": "Hook JSON with the session id and the user's new prompt."
+        },
+        {
+          "from": "hooks",
+          "to": "deliver",
+          "says": "collect results",
+          "phase": "next prompt"
+        },
+        {
+          "from": "deliver",
+          "to": "results",
+          "says": "read undelivered",
+          "phase": "next prompt"
+        },
+        {
+          "from": "hooks",
+          "to": "claude-code",
+          "says": "top 2 + confirmed",
+          "phase": "next prompt"
+        }
+      ],
+      "omits": "The turn log, router, ranker, settings and ledger, which the hooks and worker use along the way, and the tests, which run only on HARD changes.",
+      "context": "polywatch has to stay out of Claude's way. A review takes seconds to minutes, and a hook that waited for it would stall every turn. The design question is where the review runs and when its result reaches anyone.",
+      "narrative": "Read the diagram top to bottom. During the turn, every time Claude edits or writes a file, Claude Code runs the PostToolUse hook. The hook appends the edit to a turn log on disk and returns; it does no review.\n\nWhen the turn ends, Claude Code runs the Stop hook. The hook writes a job (the turn's edits and the last thing the user asked) and spawns the review worker as a detached process. Then it returns, and Claude is free. This is the only place the two timelines split: from here on, Claude and the worker run independently.\n\nIn the background, the worker reads the job and sends the changed files to DeepSeek Flash, which lists the defects it sees. The worker sends up to two of the most serious claims, one at a time, to Claude Opus 5.5, which says whether each holds against the code and gives its evidence. Refuted claims are dropped, the rest are scored, and the ranked result is written to the results folder.\n\nThe result waits there until the user sends the next prompt. The UserPromptSubmit hook asks the delivery module for undelivered results and prints two things back to Claude Code: a short message for the user with at most two findings, and, for Claude, only the confirmed ones, so Claude can fix them in its next turn."
+    },
+    {
+      "id": "filter",
+      "title": "What happens to a claim",
+      "ask": "Out of everything the reviewer says, what reaches the user and what reaches Claude?",
+      "answer": "The reviewer's verdict is ignored. Opus checks the most serious claims and refuted ones are dropped. The ranker scores the rest by how often that kind of finding has been real. Delivery shows the top two, and only confirmed ones go to Claude.",
+      "involves": [
+        "worker",
+        "reviewer",
+        "adjudicator",
+        "ranker",
+        "ledger",
+        "results",
+        "deliver"
+      ],
+      "highlight": [
+        "adjudicator",
+        "ranker"
+      ],
+      "facts": [
+        "verdict-ignored",
+        "refuted-dropped",
+        "top-two",
+        "confirmed-to-claude",
+        "budget"
+      ],
+      "omits": "The router and tests, which only decide whether the project's tests run, and the hooks, which only carry the result.",
+      "context": "A cheap reviewer says a lot, and most of it is not worth a person's time. On real history its verdict carried no information at all, yet its specific claims sometimes named the exact bug a later commit fixed. The pipeline exists to keep those claims and drop the rest.",
+      "narrative": "The worker runs the whole pipeline, in four phases. (Before them, the router labels the change EASY, MEDIUM or HARD; the label decides only whether the project's tests run, and no longer changes how findings are judged.)\n\nThe worker then sends the changed files to DeepSeek Flash. Flash returns a verdict and a list of issues. The verdict is stored but not used: in a replay of 50 commits it rejected almost everything, buggy or not. The issues are what matter.\n\nThe worker sorts the issues by severity and sends the top high and medium ones, up to two, to Claude Opus 5.5, one claim at a time, with the cited code. Opus answers yes, no or uncertain. A no removes the claim. A yes turns it into a confirmed finding and attaches Opus's evidence. Spending stops at the per-turn budget in the settings.\n\nThe ranker then scores what is left. Each finding falls into one of six kinds (confirmed or not, by severity), and each kind has a precision: a starting guess, moved by every outcome in the ledger. Findings below 0.25 are hidden. Delivery takes the top two, shows them to the user, and sends only the confirmed ones to Claude, for at most two turns in a row.",
+      "shape": "sequence",
+      "steps": [
+        {
+          "from": "worker",
+          "to": "reviewer",
+          "says": "list defects",
+          "phase": "review"
+        },
+        {
+          "from": "reviewer",
+          "to": "worker",
+          "says": "verdict + issues",
+          "kind": "return",
+          "phase": "review",
+          "note": "The verdict is stored and ignored. The issues are the candidates."
+        },
+        {
+          "from": "worker",
+          "to": "adjudicator",
+          "says": "check top claim",
+          "phase": "confirm",
+          "note": "High and medium issues, most severe first, up to two, within the per-turn budget."
+        },
+        {
+          "from": "adjudicator",
+          "to": "worker",
+          "says": "yes / no / uncertain",
+          "kind": "return",
+          "phase": "confirm",
+          "note": "No drops the claim. Yes makes it a confirmed finding with evidence."
+        },
+        {
+          "from": "worker",
+          "to": "ranker",
+          "says": "score findings",
+          "phase": "rank"
+        },
+        {
+          "from": "ranker",
+          "to": "ledger",
+          "says": "read outcomes",
+          "phase": "rank"
+        },
+        {
+          "from": "ledger",
+          "to": "ranker",
+          "says": "precision per kind",
+          "kind": "return",
+          "phase": "rank"
+        },
+        {
+          "from": "ranker",
+          "to": "worker",
+          "says": "findings, best first",
+          "kind": "return",
+          "phase": "rank"
+        },
+        {
+          "from": "worker",
+          "to": "results",
+          "says": "top 2 above 0.25",
+          "phase": "show"
+        },
+        {
+          "from": "deliver",
+          "to": "results",
+          "says": "read on next prompt",
+          "phase": "show",
+          "note": "The user sees the shown findings; Claude gets only the confirmed ones, at most two turns in a row."
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "title": "What leaves your machine",
+      "ask": "Which parts of my code are sent to which provider?",
+      "answer": "Only two calls leave the machine. The changed files (minus excluded ones) and the request go to DeepSeek. Single claims with the code they cite go to Anthropic. Everything else, including the ledger, stays in .polywatch/.",
+      "involves": [
+        "turnlog",
+        "config",
+        "worker",
+        "reviewer",
+        "adjudicator",
+        "results",
+        "ledger"
+      ],
+      "highlight": [
+        "reviewer",
+        "adjudicator"
+      ],
+      "facts": [
+        "excluded",
+        "request-cost"
+      ],
+      "omits": "The replay scripts, which also call Anthropic but only on benchmark data.",
+      "context": "A code reviewer is a data flow. Anyone installing polywatch on a private codebase needs to know exactly what is sent where before the first turn is reviewed.",
+      "narrative": "Everything inside the box runs locally. The turn log, the settings, the results and the ledger are plain files in the project's .polywatch folder.\n\nThe first crossing is the review. The worker builds a prompt from the changed files and the user's request. Files matching the exclusion list (.env files, keys, anything named secret or credential, node_modules) are dropped before the prompt is built, and each file is capped at 60,000 bytes. The prompt goes to DeepSeek by default; the settings can point it at Anthropic or at a local OpenAI-compatible server instead.\n\nThe second crossing is confirmation. For each claim it checks, the worker sends Anthropic the claim, the cited file or the windows of it around the names the claim mentions, and the request when it is under 20,000 characters.\n\nNothing else leaves. The ledger of outcomes, which is what calibrates the ranking, never does."
+    },
+    {
+      "id": "learn",
+      "title": "How your outcomes change the ranking",
+      "ask": "How does telling polywatch a finding was real or false change what it shows next time?",
+      "answer": "The outcome goes into the ledger. The ranker reads the ledger on every review, so the next findings of that kind score higher or lower, and a kind that keeps being wrong drops below the threshold.",
+      "involves": [
+        "claude-code",
+        "skill",
+        "cli",
+        "ledger",
+        "ranker"
+      ],
+      "highlight": [
+        "ledger",
+        "ranker"
+      ],
+      "facts": [
+        "outcomes-weights",
+        "top-two"
+      ],
+      "omits": "The model providers, which the learning loop never touches.",
+      "context": "The starting weights are guesses, and every codebase is different. polywatch gets better at a project only through the user saying which findings were worth their time.",
+      "narrative": "The loop starts with the user. After seeing a finding, they tell Claude it was a real bug or a false alarm. The findings skill tells Claude to record it by running the CLI's outcome command, with the review id and the finding's number.\n\nThe CLI appends one line to the ledger. Nothing else changes at that moment.\n\nThe next time a review runs, the ranker reads the whole ledger. For each kind of finding (confirmed or not, high, medium or low severity) it counts the outcomes and computes a precision: the starting guess counts as four outcomes, and each recorded real or false moves the estimate. Findings are sorted by that precision, and only the top two above 0.25 are shown. A kind that has been wrong often enough falls below the line and is hidden; a kind that has been right rises."
+    },
+    {
+      "id": "measure-git",
+      "title": "Measuring on real project history",
+      "ask": "How do we check polywatch against bugs a project actually had?",
+      "answer": "The git replay labels each commit buggy if a later fix commit changed its lines, runs the same worker on it, and has Opus judge whether any finding names the bug that was fixed.",
+      "involves": [
+        "replay-git",
+        "gitrepo",
+        "worker",
+        "adjudicator"
+      ],
+      "highlight": [
+        "replay-git"
+      ],
+      "facts": [
+        "szz-noise",
+        "verdict-ignored"
+      ],
+      "omits": "The hooks and delivery, which the replay bypasses by calling the worker directly.",
+      "context": "A reviewer that sounds convincing can still be useless. The first test is a project's own history, where later fixes show which commits were wrong.",
+      "narrative": "The git replay reads the project's history. For every commit whose subject starts with fix, it blames the lines the fix changed and marks the commits that wrote them as buggy (the SZZ method). Commits that no fix ever touched, and that are old enough, are marked clean.\n\nEach sampled commit becomes a job for the same worker the plugin uses, so the replay measures the shipped pipeline.\n\nAfter the run, Opus compares each buggy commit's findings with the fix diff and says whether any finding names the bug that was fixed. The answer key is noisy: an unfixed bug looks clean. On BaanBaan this replay showed that the reviewer's verdict carries no information, and that its specific claims sometimes do."
+    },
+    {
+      "id": "measure-sysmo",
+      "title": "Measuring on planted bugs",
+      "ask": "How do we check polywatch where the right answer is exact?",
+      "answer": "The sysmobench replay reviews specifications a model checker has verified, and copies with one bug planted. Opus is shown the planted diff and says whether a finding names it. The verified specs count the false alarms.",
+      "involves": [
+        "replay-sysmo",
+        "sysmobench",
+        "worker",
+        "adjudicator"
+      ],
+      "highlight": [
+        "replay-sysmo"
+      ],
+      "facts": [
+        "sysmo-result",
+        "request-cost"
+      ],
+      "omits": "The hooks and delivery, which the replay bypasses by calling the worker directly.",
+      "context": "Git history cannot say which commits are really correct. Specifications checked against traces of the real system can, and a planted bug says exactly what a good reviewer should find.",
+      "narrative": "The sysmobench replay reads the price-of-trust study's ledgers: which specifications passed the checker, and which verified ones had a bug planted in them by another model.\n\nEach specification is reviewed as a new file named spec.js, with the study's task prompt (which contains the real source code) as the request. Nothing in the file or its name says whether a bug was planted.\n\nAfter the run, Opus is shown the diff between each mutant and its source and says whether any finding names the planted change. The verified originals give a clean count of false alarms, because the checker has already said they are correct. On the spinlock and lock service, 90 of 91 planted bugs were confirmed and ranked first, and 1 of 158 verified specs got a confirmed finding."
+    }
+  ],
+  "glossary": [
+    {
+      "term": "turn",
+      "definition": "One round of Claude Code work: the user's prompt and everything Claude does in answer, up to when it stops."
+    },
+    {
+      "term": "hook",
+      "definition": "A command Claude Code runs at a fixed event, such as after a file edit, when a turn stops, or when the user submits a prompt."
+    },
+    {
+      "term": "tier",
+      "also": [
+        "EASY",
+        "MEDIUM",
+        "HARD"
+      ],
+      "definition": "polywatch's label for how hard a change is to get right, from its size and whether it touches concurrency, state or protocol logic."
+    },
+    {
+      "term": "claim",
+      "definition": "One specific, checkable statement a reviewer makes about a defect: which file, where, and what is wrong."
+    },
+    {
+      "term": "finding",
+      "definition": "A claim that survived confirmation (it was not refuted), with a score. Confirmed findings carry Opus's evidence."
+    },
+    {
+      "term": "confirmed",
+      "definition": "Opus checked the claim against the code and said it holds."
+    },
+    {
+      "term": "refuted",
+      "definition": "Opus checked the claim against the code and said it does not hold. Refuted claims are never shown."
+    },
+    {
+      "term": "precision",
+      "definition": "The share of findings of one kind that turned out to be real bugs, as estimated from recorded outcomes."
+    },
+    {
+      "term": "ledger",
+      "definition": "An append-only file of every review and every outcome, used to calibrate the ranking."
+    },
+    {
+      "term": "outcome",
+      "definition": "The user's verdict on one finding after the fact: real bug or false alarm."
+    },
+    {
+      "term": "additionalContext",
+      "definition": "Text a hook returns that Claude Code adds to Claude's context for the next turn; polywatch uses it for confirmed findings."
+    },
+    {
+      "term": "SZZ",
+      "definition": "A method for finding the commit that introduced a bug: blame the lines a later fix commit changed."
+    },
+    {
+      "term": "mutant",
+      "also": [
+        "planted bug"
+      ],
+      "definition": "A copy of a correct specification with one small behavioral bug introduced on purpose, so the answer is known."
+    },
+    {
+      "term": "sysmobench",
+      "definition": "A benchmark of executable specifications of real systems, checked by replaying traces recorded from the real implementation."
+    }
+  ]
+}

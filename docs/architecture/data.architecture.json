@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "What leaves your machine",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "answer",
+        "label": "What leaves your machine",
+        "focus": [
+          "reviewer",
+          "adjudicator"
+        ],
+        "note": "Only two calls leave the machine. The changed files (minus excluded ones) and the request go to DeepSeek. Single claims with the code they…"
+      },
+      {
+        "id": "machine",
+        "label": "Your machine",
+        "focus": [
+          "turnlog",
+          "config",
+          "worker",
+          "results",
+          "ledger"
+        ],
+        "note": "Runs on the developer's machine; code leaves it only in the two model calls"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "turnlog",
+      "type": "database",
+      "label": "Turn log and jobs",
+      "pos": [
+        380,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": ".polywatch/turns, jobs"
+    },
+    {
+      "id": "config",
+      "type": "database",
+      "label": "Settings",
+      "pos": [
+        380,
+        174
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": ".polywatch.json"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "Review worker",
+      "pos": [
+        60,
+        111
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "detached process"
+    },
+    {
+      "id": "reviewer",
+      "type": "external",
+      "label": "DeepSeek Flash",
+      "pos": [
+        1020,
+        360
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "reviewer"
+    },
+    {
+      "id": "adjudicator",
+      "type": "external",
+      "label": "Claude Opus 5.5",
+      "pos": [
+        1020,
+        486
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "claim checker"
+    },
+    {
+      "id": "results",
+      "type": "database",
+      "label": "Review results",
+      "pos": [
+        700,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": ".polywatch/results"
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Ledger",
+      "pos": [
+        700,
+        174
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": ".polywatch/ledger.jsonl"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Your machine: Runs on the developer's machine; code leaves it only in the two model calls",
+      "wraps": [
+        "turnlog",
+        "config",
+        "worker",
+        "results",
+        "ledger"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "worker--turnlog",
+      "from": "worker",
+      "to": "turnlog",
+      "label": "read the job · file",
+      "labelAt": [
+        295,
+        63
+      ]
+    },
+    {
+      "id": "worker--config",
+      "from": "worker",
+      "to": "config",
+      "label": "load settings",
+      "labelAt": [
+        343,
+        131
+      ]
+    },
+    {
+      "id": "worker--reviewer",
+      "from": "worker",
+      "to": "reviewer",
+      "label": "list defects · HTTPS",
+      "labelAt": [
+        360,
+        165
+      ],
+      "variant": "security"
+    },
+    {
+      "id": "worker--adjudicator",
+      "from": "worker",
+      "to": "adjudicator",
+      "label": "check one claim · HTTPS",
+      "labelAt": [
+        367,
+        160
+      ],
+      "variant": "security"
+    },
+    {
+      "id": "worker--results",
+      "from": "worker",
+      "to": "results",
+      "label": "write the result · file",
+      "labelAt": [
+        367,
+        124
+      ]
+    },
+    {
+      "id": "worker--ledger",
+      "from": "worker",
+      "to": "ledger",
+      "label": "append the review · file",
+      "labelAt": [
+        295,
+        233
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The short answer",
+      "items": [
+        "Only two calls leave the machine",
+        "The changed files (minus excluded ones) and the request go to DeepSeek",
+        "Single claims with the code they cite go to Anthropic"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Not shown here",
+      "items": [
+        "The replay scripts, which also call Anthropic but only on benchmark data",
+        "Connected but out of scope: Hook entry, Router, Project tests, Ranker, Delivery, polywatch CLI"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What it guarantees",
+      "items": [
+        "Excluded files never leave the machine: .env, keys, *secret*, *credential* and node_modules are dropped before the reviewer prompt is built"
+      ]
+    }
+  ]
+}

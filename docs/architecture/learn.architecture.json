@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "How your outcomes change the ranking",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "answer",
+        "label": "How your outcomes change the ranking",
+        "focus": [
+          "ledger",
+          "ranker"
+        ],
+        "note": "The outcome goes into the ledger. The ranker reads the ledger on every review, so the next findings of that kind score higher or lower, and…"
+      },
+      {
+        "id": "machine",
+        "label": "Your machine",
+        "focus": [
+          "ranker",
+          "ledger",
+          "cli",
+          "skill"
+        ],
+        "note": "Runs on the developer's machine; code leaves it only in the two model calls"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "claude-code",
+      "type": "frontend",
+      "label": "Claude Code",
+      "pos": [
+        60,
+        48
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "the host session"
+    },
+    {
+      "id": "skill",
+      "type": "backend",
+      "label": "Findings skill",
+      "pos": [
+        380,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "/trust"
+    },
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "polywatch CLI",
+      "pos": [
+        700,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "report, outcome, review"
+    },
+    {
+      "id": "ledger",
+      "type": "database",
+      "label": "Ledger",
+      "pos": [
+        1020,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": ".polywatch/ledger.jsonl"
+    },
+    {
+      "id": "ranker",
+      "type": "backend",
+      "label": "Ranker",
+      "pos": [
+        60,
+        234
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sublabel": "bucket precision"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Your machine: Runs on the developer's machine; code leaves it only in the two model calls",
+      "wraps": [
+        "ranker",
+        "ledger",
+        "cli",
+        "skill"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "ranker--ledger",
+      "from": "ranker",
+      "to": "ledger",
+      "label": "read outcomes · file",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          135,
+          328
+        ],
+        [
+          1095,
+          328
+        ]
+      ],
+      "labelAt": [
+        615,
+        328
+      ],
+      "variant": "emphasis"
+    },
+    {
+      "id": "cli--ledger",
+      "from": "cli",
+      "to": "ledger",
+      "label": "record an outcome · file",
+      "labelAt": [
+        935,
+        249
+      ]
+    },
+    {
+      "id": "claude-code--skill",
+      "from": "claude-code",
+      "to": "skill",
+      "label": "loads when asked · manual",
+      "labelAt": [
+        295,
+        63
+      ]
+    },
+    {
+      "id": "skill--cli",
+      "from": "skill",
+      "to": "cli",
+      "label": "run report or outcome · spawn",
+      "labelAt": [
+        615,
+        249
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "The short answer",
+      "items": [
+        "The outcome goes into the ledger",
+        "The ranker reads the ledger on every review, so the next findings of that kind score higher or lower, and a kind that keeps being wrong drops below the threshold"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Not shown here",
+      "items": [
+        "The model providers, which the learning loop never touches",
+        "Connected but out of scope: Hook entry, Review worker, Review results"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Doctrine",
+      "items": [
+        "Recorded outcomes set the ranking: each kind of finding starts from a prior precision worth four outcomes; every real or false the user records moves it"
+      ]
+    }
+  ]
+}

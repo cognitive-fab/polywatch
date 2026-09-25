@@ -1,0 +1,6 @@
+{
+  "testCommand": null,
+  "budgetUsdPerTurn": 0.5,
+  "reviewer": { "provider": "deepseek", "model": "deepseek-flash" },
+  "adjudicator": { "provider": "anthropic", "model": "claude-opus-5-5", "maxClaims": 2 }
+}

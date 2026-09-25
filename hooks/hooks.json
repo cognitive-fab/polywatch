@@ -1,0 +1,18 @@
+{
+  "description": "polywatch: record edits, review each turn in the background, deliver results on the next prompt (or before Claude stops, with deliver: 'stop')",
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit|Write|MultiEdit",
+        "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/polywatch.mjs\" hook post-tool", "timeout": 30 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/polywatch.mjs\" hook stop", "timeout": 900 } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/polywatch.mjs\" hook prompt", "timeout": 30 } ] }
+    ],
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/polywatch.mjs\" hook session", "timeout": 30 } ] }
+    ]
+  }
+}
