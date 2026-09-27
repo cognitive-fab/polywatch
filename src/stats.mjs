@@ -5,7 +5,7 @@ import { listJson, readJson } from './util.mjs';
 import { calibration } from './rank.mjs';
 
 const HOUR = 3600e3;
-const readJsonl = (p) => existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : [];
+export const readJsonl = (p) => existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : [];
 const median = (xs) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
 
 // Other .polywatch folders below the project: state that older versions left in subfolders.
@@ -21,7 +21,8 @@ function strayStateDirs(root, d = root, depth = 0, out = []) {
   return out;
 }
 
-export function stats(root, now = Date.now()) {
+// strays: walk the project for old .polywatch folders (slow on big trees; the dashboard skips it).
+export function stats(root, now = Date.now(), { strays = true } = {}) {
   const dir = join(root, '.polywatch');
   const results = listJson(join(dir, 'results')).map(p => readJson(p)).filter(Boolean);
   const ledger = readJsonl(join(dir, 'ledger.jsonl'));
@@ -56,7 +57,7 @@ export function stats(root, now = Date.now()) {
     outcomes: { real: count(outcomes, o => o.verdict === 'real'), false: count(outcomes, o => o.verdict !== 'real') },
     precision: calibration(dir),
     problems: {
-      strayStateDirs: strayStateDirs(root),
+      strayStateDirs: strays ? strayStateDirs(root) : [],
       strandedTurnFiles: pendingTurns.filter(old).length,
       stuckJobs: listJson(join(dir, 'jobs')).filter(old).length,
       errors: readJsonl(join(dir, 'errors.jsonl')).length,

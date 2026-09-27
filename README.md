@@ -112,6 +112,7 @@ polywatch review <files> --task "…"          # review files by hand
 polywatch outcome <id> <n> real|false [note] # was finding n of review id a real bug? this sets the weights
 polywatch calibration                        # current precision per kind of finding
 polywatch stats [dir]                        # cost, findings, what reached Claude, outcomes, and state problems for a project
+polywatch dashboard [dir] [--no-open]        # one-file HTML dashboard: running now, waiting on you (with the default), latest reviews, stuck
 ```
 
 ## BaanBaan replay
@@ -138,6 +139,10 @@ Two limits on this. Clean commits get confirmed findings as often as buggy ones;
 | planted bugs the checker misses: confirmed | 67 of 67 | none planted |
 | verified specs with a confirmed finding | 1 of 158 | 15 of 15; 4 of 15 with `includeRequest` |
 | checker-failed specs with a confirmed finding | none tested | 19 of 20; 6 of 20 with `includeRequest` |
+
+## Dashboard
+
+`polywatch dashboard` writes `.polywatch/dashboard.html` and opens it. It needs no server: it opens with a double-click and reloads itself every 10 seconds, and polywatch rewrites it when a review starts or ends, when results are delivered and when an outcome is recorded. Panels: what is running now, what waits on you and what happens if you do nothing, the latest reviews, anything stuck, and the last 14 days. Style in `~/.polywatch.json`: `"dashboard": { "theme": "light", "density": "compact", "accent": "#1D56C9" }` (`theme` also takes `dark` or `auto`, `density` takes `airy`). The layout follows an idea by [@voxyz_ai](https://x.com/voxyz_ai): a dashboard beside every long task.
 
 ## Claude Code with and without polywatch
 

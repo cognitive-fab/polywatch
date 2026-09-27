@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // polywatch CLI: Claude Code hook entry points, the background worker, and reports.
 import { spawn } from 'node:child_process';
-import { readFileSync, unlinkSync, mkdirSync } from 'node:fs';
+import { readFileSync, unlinkSync, mkdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, stateDir, inScope, projectRoot } from '../src/config.mjs';
 import { readStdin, readJson, writeJson, appendJsonl, listJson, safeId, lastUserText } from '../src/util.mjs';
 import { runJob } from '../src/worker.mjs';
 import { changedSince } from '../src/scan.mjs';
+import { writeDashboard, refreshDashboard, openInBrowser, dashboardPath } from '../src/dashboard.mjs';
 import { collect, renderReport } from '../src/deliver.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
@@ -77,6 +78,8 @@ async function hook(kind) {
   if (kind === 'prompt' || kind === 'session') {
     if (kind === 'prompt' || !readJson(startPath)) writeJson(startPath, { ts: Date.now() });
     const got = collect(dir, session, cfg);
+    // Delivery changed what the dashboard shows: rewrite it in the background, off the prompt's path.
+    if (got && existsSync(dashboardPath(cwd))) spawn(process.execPath, [SELF, 'dashboard', cwd, '--refresh'], { cwd, detached: true, stdio: 'ignore', windowsHide: true }).unref();
     // Config problems are shown once per session, when it starts.
     const warn = kind === 'session' ? cfg.warnings.map(w => `polywatch config: ${w}`) : [];
     if (!got && !warn.length) return;
@@ -117,6 +120,20 @@ async function main() {
       if (!id || !(+num >= 1) || !['real', 'false'].includes(verdict)) throw new Error('usage: polywatch outcome <reviewId> <findingNumber> real|false [note]');
       appendJsonl(join(stateDir(projectRoot(process.cwd())), 'ledger.jsonl'), { kind: 'finding-outcome', id, index: +num, verdict, note: note.join(' '), at: new Date().toISOString() });
       console.log(`recorded: finding ${num} of ${id} was ${verdict === 'real' ? 'a real defect' : 'a false alarm'}`);
+      const root = projectRoot(process.cwd()); refreshDashboard(root, loadConfig(root));
+      return;
+    }
+    if (cmd === 'dashboard') {
+      // polywatch dashboard [dir] [--no-open]: write .polywatch/dashboard.html and open it. From then on
+      // polywatch keeps it current. --refresh: only rewrite an existing one (used by the hooks).
+      const flags = args.filter(a => a.startsWith('--')), dirArg = args.find(a => !a.startsWith('--'));
+      const root = dirArg ? resolve(dirArg) : projectRoot(process.cwd());
+      const cfg = loadConfig(root);
+      if (flags.includes('--refresh')) { refreshDashboard(root, cfg); return; }
+      stateDir(root);
+      const p = writeDashboard(root, cfg);
+      console.log(`polywatch dashboard: ${p} (reloads every 10 s; polywatch keeps it current)`);
+      if (!flags.includes('--no-open')) openInBrowser(p);
       return;
     }
     if (cmd === 'stats') {
@@ -129,7 +146,7 @@ async function main() {
       for (const [b, v] of Object.entries(calibration(stateDir(projectRoot(process.cwd()))))) console.log(`${b.padEnd(18)} real ${Math.round(v.precision * 100)}%  (${v.outcomes} outcomes)`);
       return;
     }
-    console.log('usage: polywatch hook <post-tool|stop|prompt|session> | worker <job> | report [dir] | review <files...> [--task "..."] | outcome <id> <n> real|false | stats [dir] | calibration');
+    console.log('usage: polywatch hook <post-tool|stop|prompt|session> | worker <job> | report [dir] | review <files...> [--task "..."] | outcome <id> <n> real|false | stats [dir] | dashboard [dir] [--no-open] | calibration');
   } catch (e) {
     // Hooks must never break the session: log and exit 0.
     try { appendJsonl(join(stateDir(projectRoot(process.cwd())), 'errors.jsonl'), { at: new Date().toISOString(), cmd, error: String(e.stack || e) }); } catch {}

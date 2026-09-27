@@ -9,6 +9,7 @@ import { calibration, rank } from './rank.mjs';
 import { reviewPrompt, claimPrompt, parseJson } from './prompts.mjs';
 import { callDeepseek } from './reviewers/deepseek.mjs';
 import { callAnthropic } from './reviewers/anthropic.mjs';
+import { refreshDashboard } from './dashboard.mjs';
 
 export function buildUnits(job, cfg) {
   const byFile = new Map();
@@ -102,6 +103,9 @@ export async function runJob(jobPath, deps = {}) {
   const job = readJson(jobPath);
   const cfg = loadConfig(job.configDir || job.cwd);
   const dir = stateDir(job.stateDir || job.cwd);
+  // The dashboard (if the user made one) shows this review as running now, and the result when it ends.
+  const dash = () => { if (!job.stateDir) refreshDashboard(job.cwd, cfg); };
+  dash();
   const review = deps.review || ((p) => callRole(cfg, 'reviewer', p));
   const adjudicate = deps.adjudicate || ((p) => callRole(cfg, 'adjudicator', p, 64000));
   const result = { id: job.id, session: job.session, createdAt: new Date().toISOString(), cost: 0, notes: cfg.warnings.map(w => `Config: ${w}`) };
@@ -115,7 +119,7 @@ export async function runJob(jobPath, deps = {}) {
 
   if (!units.length || f.changedLines < cfg.minChangedLines) {
     result.skipped = !units.length ? 'no reviewable files (all excluded or outside the project)' : `only ${f.changedLines} changed lines`;
-    return finish(dir, jobPath, result);
+    return dash(), finish(dir, jobPath, result);
   }
 
   // Step 1: cheap reviewer from another model family lists candidate defects.
@@ -182,7 +186,9 @@ export async function runJob(jobPath, deps = {}) {
   result.issues = result.findings.filter(x => x.status === 'confirmed' && x.score >= cfg.minScore).slice(0, cfg.maxToClaude);
   if (r.tier === 'HARD' && !result.tests) result.notes.push('Hard change and no machine check configured: set "testCommand" in .polywatch.json, or run polygraph on the state machine.');
   if (result.tests && !result.tests.passed) result.notes.push(`Tests failed: ${cfg.testCommand}`);
-  return finish(dir, jobPath, result, unpriced);
+  const done = finish(dir, jobPath, result, unpriced);
+  dash();
+  return done;
 }
 
 function finish(dir, jobPath, result, unpriced = new Set()) {

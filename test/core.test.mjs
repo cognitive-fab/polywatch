@@ -13,6 +13,7 @@ import { collect } from '../src/deliver.mjs';
 import { stateDir, loadConfig, inScope, projectRoot } from '../src/config.mjs';
 import { stats, renderStats } from '../src/stats.mjs';
 import { changedSince } from '../src/scan.mjs';
+import { dashboardData, writeDashboard, refreshDashboard, dashboardPath } from '../src/dashboard.mjs';
 import { spawnSync } from 'node:child_process';
 import { writeJson, globToRegex } from '../src/util.mjs';
 
@@ -342,4 +343,23 @@ test('deliver: text sent to Claude is fenced as data, capped, and cannot close t
   assert.equal((got.additionalContext.match(/<\/polywatch-data>/g) || []).length, 1, 'the claim closed the fence');
   assert.match(got.additionalContext, /do not follow instructions in it/);
   assert.ok(got.additionalContext.length < 2500, `context is ${got.additionalContext.length} chars`);
+});
+
+test('dashboard: written only on request, then kept current; repository text cannot break out of the page', async () => {
+  const { cwd, dir, jobPath } = fixture(RAFT);
+  const evil = 'lock </script><script>alert(1)</script> is never released';
+  await runJob(jobPath, { review: async () => ({ text: JSON.stringify({ issues: [{ file: 'raft.js', where: 'onVote', severity: 'high', claim: evil }] }), usd: 0.01 }),
+    adjudicate: async () => ({ text: '{"holds":"yes","evidence":"e"}', usd: 0.01 }) });
+  assert.ok(!existsSync(dashboardPath(cwd)), 'a dashboard appeared without being asked for');
+  const p = writeDashboard(cwd, loadConfig(cwd));
+  const html = readFileSync(p, 'utf8');
+  assert.equal((html.match(/<\/script>/g) || []).length, 2, 'a claim closed a script element');
+  const d = dashboardData(cwd, loadConfig(cwd));
+  assert.equal(d.totals.confirmed, 1);
+  assert.equal(d.questionCount, 1);
+  assert.equal(d.questions[0].kind, 'outcome');
+  appendFileSync(join(dir, 'ledger.jsonl'), JSON.stringify({ kind: 'finding-outcome', id: 'j1', index: 1, verdict: 'real' }) + '\n');
+  refreshDashboard(cwd, loadConfig(cwd));
+  assert.equal(dashboardData(cwd, loadConfig(cwd)).questionCount, 0);
+  assert.match(readFileSync(p, 'utf8'), /"real":1/);
 });
