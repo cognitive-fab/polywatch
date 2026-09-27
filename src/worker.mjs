@@ -95,8 +95,11 @@ function callRole(cfg, role, prompt, maxTokens) {
   const r = cfg[role];
   // Through Claude Code on the user's plan: no API key involved.
   if (r.provider === 'claude-code') return callClaudeCode({ model: r.model, prompt });
-  const apiKey = process.env[r.apiKeyEnv];
-  if (!apiKey) return Promise.resolve({ error: `${r.apiKeyEnv} not set` });
+  // The key set in the plugin's settings (Claude Code stores it in the OS credential store and passes it
+  // to hooks as CLAUDE_PLUGIN_OPTION_<KEY>), else the environment variable named in the config.
+  const optionVar = `CLAUDE_PLUGIN_OPTION_${String(r.provider).toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`;
+  const apiKey = process.env[optionVar] || process.env[r.apiKeyEnv];
+  if (!apiKey) return Promise.resolve({ error: `no ${r.provider} API key: set it in the plugin's settings (/plugin, polywatch, Configure) or in ${r.apiKeyEnv}` });
   if (r.provider === 'deepseek') return callDeepseek({ model: r.model, baseUrl: r.baseUrl, apiKey, prompt, price: r.price, ...(maxTokens && { maxTokens }) });
   if (r.provider === 'anthropic') return callAnthropic({ model: r.model, apiKey, prompt, price: r.price });
   return Promise.resolve({ error: `unknown ${role} provider ${r.provider}` });

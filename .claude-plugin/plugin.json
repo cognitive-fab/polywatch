@@ -1,7 +1,7 @@
 {
   "name": "polywatch",
   "displayName": "Polywatch",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "A background bug hunter for code Claude writes. After each turn, a cheap reviewer from another model family (DeepSeek V4.1-Flash by default) reads the change, Claude Opus 5.5 checks the most serious claims against the code, and on your next prompt you see at most two ranked findings. Confirmed defects go back to Claude to fix. Your own real/false-alarm outcomes set the ranking weights.",
   "author": {
     "name": "jdubray",
@@ -17,5 +17,19 @@
     "claude-code",
     "hooks"
   ],
-  "repository": "https://github.com/cognitive-fab/polywatch"
+  "repository": "https://github.com/cognitive-fab/polywatch",
+  "userConfig": {
+    "deepseek_api_key": {
+      "type": "string",
+      "title": "DeepSeek API key",
+      "description": "Used by the reviewer (DeepSeek by default) to list candidate defects after each turn. Stored in your system credential store. Leave empty to use the environment variable named in ~/.polywatch.json.",
+      "sensitive": true
+    },
+    "anthropic_api_key": {
+      "type": "string",
+      "title": "Anthropic API key (optional)",
+      "description": "Only needed if the reviewer or the confirming model uses the Anthropic API. Not needed with \"provider\": \"claude-code\", which runs on your Claude plan through claude -p.",
+      "sensitive": true
+    }
+  }
 }

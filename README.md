@@ -59,7 +59,8 @@ node <archlens>/skills/archlens/bin/archlens.mjs render polywatch.analysis.json 
 ## Install
 
 ```bash
-# API keys, in your environment (not in the repo). Use your own variable name for the Anthropic key:
+# API keys: set them in the plugin's settings (/plugin → polywatch → Configure). Claude Code keeps them in your
+# system credential store. Or, for the CLI and scripts, in your environment (not in the repo). Use your own variable name for the Anthropic key:
 # if ANTHROPIC_API_KEY is set, Claude Code itself uses it and bills your API account instead of your plan.
 setx POLYWATCH_DEEPSEEK_API_KEY "sk-..."        # reviewer (export ... on macOS/Linux)
 setx POLYWATCH_ANTHROPIC_API_KEY "sk-ant-..."   # confirmation (optional; without it nothing is confirmed)

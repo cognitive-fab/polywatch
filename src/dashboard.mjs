@@ -100,7 +100,10 @@ export function dashboardData(root, cfg, now = Date.now()) {
 const embed = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
 
 export function renderDashboard(data) {
-  return TEMPLATE.replace('__DATA__', embed(data)).replace('__TITLE__', `polywatch · ${String(data.project).replace(/[<&>"]/g, '')}`);
+  // Replacer functions, not strings: in a replacement string "$'" and "$`" splice in the text around
+  // the match, and repository text can contain them.
+  const title = `polywatch · ${String(data.project).replace(/[<&>"]/g, '')}`;
+  return TEMPLATE.replace('__DATA__', () => embed(data)).replace('__TITLE__', () => title);
 }
 
 export function writeDashboard(root, cfg) {
