@@ -16,7 +16,7 @@ polywatch has to stay out of Claude's way. A review takes seconds to minutes, an
 
 It records each edit, starts a detached review when the turn ends, and shows the result on the next prompt. Claude never waits for it.
 
-[Open the diagram](turn.sequence.html). 7 participants.
+[Open the diagram](https://cognitive-fab.github.io/polywatch/architecture/turn.sequence.html). 7 participants.
 
 | Component | Responsibility |
 |---|---|
@@ -86,7 +86,7 @@ A cheap reviewer says a lot, and most of it is not worth a person's time. On rea
 
 The reviewer's verdict is ignored. Opus checks the most serious claims and refuted ones are dropped. The ranker scores the rest by how often that kind of finding has been real. Delivery shows the top two, and only confirmed ones go to Claude.
 
-[Open the diagram](filter.sequence.html). 7 participants.
+[Open the diagram](https://cognitive-fab.github.io/polywatch/architecture/filter.sequence.html). 7 participants.
 
 | Component | Responsibility |
 |---|---|
@@ -155,7 +155,7 @@ A code reviewer is a data flow. Anyone installing polywatch on a private codebas
 
 Only two calls leave the machine. The changed files (minus excluded ones) and the request go to DeepSeek. Single claims with the code they cite go to Anthropic. Everything else, including the ledger, stays in .polywatch/.
 
-[Open the diagram](data.architecture.html). 7 components.
+[Open the diagram](https://cognitive-fab.github.io/polywatch/architecture/data.architecture.html). 7 components.
 
 | Component | Responsibility |
 |---|---|
@@ -198,7 +198,7 @@ The starting weights are guesses, and every codebase is different. polywatch get
 
 The outcome goes into the ledger. The ranker reads the ledger on every review, so the next findings of that kind score higher or lower, and a kind that keeps being wrong drops below the threshold.
 
-[Open the diagram](learn.architecture.html). 5 components.
+[Open the diagram](https://cognitive-fab.github.io/polywatch/architecture/learn.architecture.html). 5 components.
 
 | Component | Responsibility |
 |---|---|
@@ -237,7 +237,7 @@ A reviewer that sounds convincing can still be useless. The first test is a proj
 
 The git replay labels each commit buggy if a later fix commit changed its lines, runs the same worker on it, and has Opus judge whether any finding names the bug that was fixed.
 
-[Open the diagram](measure-git.architecture.html). 4 components.
+[Open the diagram](https://cognitive-fab.github.io/polywatch/architecture/measure-git.architecture.html). 4 components.
 
 | Component | Responsibility |
 |---|---|
@@ -272,7 +272,7 @@ Git history cannot say which commits are really correct. Specifications checked 
 
 The sysmobench replay reviews specifications a model checker has verified, and copies with one bug planted. Opus is shown the planted diff and says whether a finding names it. The verified specs count the false alarms.
 
-[Open the diagram](measure-sysmo.architecture.html). 4 components.
+[Open the diagram](https://cognitive-fab.github.io/polywatch/architecture/measure-sysmo.architecture.html). 4 components.
 
 | Component | Responsibility |
 |---|---|
