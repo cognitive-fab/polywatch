@@ -66,6 +66,7 @@ async function hook(kind) {
       // same turn instead of waiting for the next prompt. Needed for headless runs, which have no next prompt.
       await runJob(jobPath);
       const got = collect(dir, session, cfg);
+      if (got) refreshDashboard(cwd, cfg);             // delivery changed what the dashboard shows
       if (got?.additionalContext) out({ decision: 'block', reason: got.additionalContext, systemMessage: got.systemMessage });
       else if (got) out({ systemMessage: got.systemMessage });
       return;
@@ -79,7 +80,7 @@ async function hook(kind) {
     if (kind === 'prompt' || !readJson(startPath)) writeJson(startPath, { ts: Date.now() });
     const got = collect(dir, session, cfg);
     // Delivery changed what the dashboard shows: rewrite it in the background, off the prompt's path.
-    if (got && existsSync(dashboardPath(cwd))) spawn(process.execPath, [SELF, 'dashboard', cwd, '--refresh'], { cwd, detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    if (got && existsSync(dashboardPath(cwd))) spawn(process.execPath, [SELF, 'dashboard', cwd, '--refresh'], { cwd, detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref();
     // Config problems are shown once per session, when it starts.
     const warn = kind === 'session' ? cfg.warnings.map(w => `polywatch config: ${w}`) : [];
     if (!got && !warn.length) return;

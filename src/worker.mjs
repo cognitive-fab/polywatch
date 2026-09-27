@@ -10,6 +10,7 @@ import { reviewPrompt, claimPrompt, parseJson } from './prompts.mjs';
 import { callDeepseek } from './reviewers/deepseek.mjs';
 import { callAnthropic } from './reviewers/anthropic.mjs';
 import { refreshDashboard } from './dashboard.mjs';
+import { callClaudeCode } from './reviewers/claudecode.mjs';
 
 export function buildUnits(job, cfg) {
   const byFile = new Map();
@@ -92,6 +93,8 @@ export function excerptFor(units, claim, budget = 40000) {
 // which only lets the user's own config (or a trusted project) choose them.
 function callRole(cfg, role, prompt, maxTokens) {
   const r = cfg[role];
+  // Through Claude Code on the user's plan: no API key involved.
+  if (r.provider === 'claude-code') return callClaudeCode({ model: r.model, prompt });
   const apiKey = process.env[r.apiKeyEnv];
   if (!apiKey) return Promise.resolve({ error: `${r.apiKeyEnv} not set` });
   if (r.provider === 'deepseek') return callDeepseek({ model: r.model, baseUrl: r.baseUrl, apiKey, prompt, price: r.price, ...(maxTokens && { maxTokens }) });

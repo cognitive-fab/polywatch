@@ -28,6 +28,7 @@ export const DEFAULTS = {
 export const PROVIDERS = {
   deepseek: { baseUrl: 'https://api.deepseek.com/v1', apiKeyEnv: 'DEEPSEEK_API_KEY' },
   anthropic: { apiKeyEnv: 'ANTHROPIC_API_KEY' },
+  'claude-code': {},            // runs `claude -p` on the user's Claude plan; no key
 };
 
 // Keys a project file may set only when the user trusts the project.

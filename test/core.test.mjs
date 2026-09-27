@@ -363,3 +363,36 @@ test('dashboard: written only on request, then kept current; repository text can
   assert.equal(dashboardData(cwd, loadConfig(cwd)).questionCount, 0);
   assert.match(readFileSync(p, 'utf8'), /"real":1/);
 });
+
+test("provider 'claude-code': the adjudicator runs through claude -p without tools, hooks or the API key", async () => {
+  const { cwd, jobPath } = fixture(RAFT, { adjudicator: { provider: 'claude-code', model: 'claude-opus-5-5' } });
+  const prev = { cmd: process.env.POLYWATCH_CLAUDE_CMD, key: process.env.ANTHROPIC_API_KEY };
+  process.env.POLYWATCH_CLAUDE_CMD = JSON.stringify([process.execPath, join(import.meta.dirname, 'fake-claude.mjs')]);
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-should-not-reach-the-child';
+  try {
+    const { callClaudeCode } = await import('../src/reviewers/claudecode.mjs');
+    const raw = await callClaudeCode({ model: 'claude-opus-5-5', prompt: 'A reviewer made a specific claim ...' });
+    const echoed = JSON.parse(raw.text);
+    assert.equal(echoed.holds, 'yes');
+    const r = await runJob(jobPath, { review });
+    assert.ok(r.adjudications.length > 0 && r.adjudications.every(a => a.holds === 'yes'), JSON.stringify(r.adjudications));
+    assert.ok(r.cost > 0);
+  } finally {
+    for (const [k, v] of [['POLYWATCH_CLAUDE_CMD', prev.cmd], ['ANTHROPIC_API_KEY', prev.key]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
+test('claude-code call: flags make it tool-free and hook-free, and the API key is not passed on', async () => {
+  const prev = process.env.POLYWATCH_CLAUDE_CMD, key = process.env.ANTHROPIC_API_KEY;
+  process.env.POLYWATCH_CLAUDE_CMD = JSON.stringify([process.execPath, join(import.meta.dirname, 'fake-claude.mjs')]);
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-x';
+  try {
+    const { callClaudeCode } = await import('../src/reviewers/claudecode.mjs');
+    const r = await callClaudeCode({ model: 'm', prompt: 'echo' });
+    assert.ok(!r.error, r.error);
+    const seen = JSON.parse(r.text);
+    for (const flag of ['-p', '--safe-mode', '--tools', '--no-session-persistence', '--system-prompt']) assert.ok(seen.args.includes(flag), flag);
+    assert.equal(seen.args[seen.args.indexOf('--tools') + 1], '', 'tools not disabled');
+    assert.equal(seen.keyVisible, false, 'the API key reached claude -p');
+  } finally { if (prev === undefined) delete process.env.POLYWATCH_CLAUDE_CMD; else process.env.POLYWATCH_CLAUDE_CMD = prev; if (key === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = key; }
+});

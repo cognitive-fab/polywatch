@@ -92,7 +92,7 @@ export function dashboardData(root, cfg, now = Date.now()) {
     style: { theme: 'light', density: 'compact', accent: '#1D56C9', ...(cfg.dashboard || {}) },
     totals: { reviews: s.reviews, reviewed: s.reviews - s.skipped - s.reviewerErrors, confirmed: s.checked.confirmed, refuted: s.checked.refuted, sent: s.sentToClaude, withheld: s.withheld,
       real: s.outcomes.real, falseAlarms: s.outcomes.false, usd: s.cost.total, usdToday: today.usd, reviewsToday: today.reviews },
-    running, recording, waiting, questions, questionCount: unrated.length + held.length + (cfg.warnings || []).length, stuck: stuck.slice(0, 12), recent, days,
+    running, recording, waiting, questions, heldMore: Math.max(0, held.length - 5), questionCount: unrated.length + held.length + (cfg.warnings || []).length, stuck: stuck.slice(0, 12), recent, days,
   };
 }
 
@@ -118,7 +118,8 @@ export function refreshDashboard(root, cfg) {
 
 export function openInBrowser(p) {
   const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', p]] : process.platform === 'darwin' ? ['open', [p]] : ['xdg-open', [p]];
-  try { spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref(); } catch {}
+  // No opener (a headless Linux box): the file is written and its path printed; nothing else happens.
+  try { spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref(); } catch {}
 }
 
 const TEMPLATE = `<!doctype html>
@@ -235,6 +236,7 @@ footer a{color:var(--muted)}
     if (q.command) it.appendChild(add(el('div'), el('code', '', q.command)));
     qP.appendChild(it);
   });
+  if (D.heldMore) qP.appendChild(el('div', 'empty', D.heldMore + ' more held-back review' + (D.heldMore > 1 ? 's' : '') + ' in polywatch report.'));
   if (!D.questions.length) empty(qP, 'Nothing needs you.');
   grid.appendChild(qP);
 
