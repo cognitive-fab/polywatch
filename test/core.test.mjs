@@ -52,8 +52,10 @@ test('rank: confirmed findings outrank unconfirmed ones; priors apply with no ou
 test('rank: recorded outcomes move a bucket', () => {
   const dir = mkdtempSync(join(tmpdir(), 'pwr-'));
   const led = join(dir, 'ledger.jsonl');
-  appendFileSync(led, JSON.stringify({ kind: 'review', id: 'r1', findings: [{ status: 'unconfirmed', severity: 'high' }] }) + '\n');
-  for (let i = 0; i < 6; i++) appendFileSync(led, JSON.stringify({ kind: 'finding-outcome', id: 'r1', index: 1, verdict: 'false' }) + '\n');
+  appendFileSync(led, JSON.stringify({ kind: 'review', id: 'r1', findings: Array.from({ length: 6 }, () => ({ status: 'unconfirmed', severity: 'high' })) }) + '\n');
+  for (let i = 1; i <= 6; i++) appendFileSync(led, JSON.stringify({ kind: 'finding-outcome', id: 'r1', index: i, verdict: 'false' }) + '\n');
+  // A second verdict on the same finding replaces the first rather than counting twice.
+  appendFileSync(led, JSON.stringify({ kind: 'finding-outcome', id: 'r1', index: 1, verdict: 'false', by: 'user' }) + '\n');
   const p = calibration(dir)['unconfirmed:high'];
   assert.equal(p.outcomes, 6);
   assert.ok(p.precision < 0.15, `precision ${p.precision}`);
@@ -395,4 +397,15 @@ test('claude-code call: flags make it tool-free and hook-free, and the API key i
     assert.equal(seen.args[seen.args.indexOf('--tools') + 1], '', 'tools not disabled');
     assert.equal(seen.keyVisible, false, 'the API key reached claude -p');
   } finally { if (prev === undefined) delete process.env.POLYWATCH_CLAUDE_CMD; else process.env.POLYWATCH_CLAUDE_CMD = prev; if (key === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = key; }
+});
+
+test('deliver: Claude is told how to record its verdicts, numbered as the review numbers them', async () => {
+  const { cwd, dir, jobPath } = fixture(RAFT);
+  await runJob(jobPath, { review, adjudicate: async (p) => ({ text: p.includes('logTerm') ? '{"holds":"yes","evidence":"e"}' : '{"holds":"no","evidence":"e"}', usd: 0 }) });
+  const got = collect(dir, 's1', loadConfig(cwd));
+  assert.match(got.additionalContext, /^1\. \[confirmed/m);
+  assert.match(got.additionalContext, /outcome j1 <number> real\|false --by claude --dir "/);
+  assert.ok(got.additionalContext.indexOf('--by claude') > got.additionalContext.indexOf('</polywatch-data>'), 'the command sits inside the data fence');
+  const s = stats(cwd);
+  assert.deepEqual([s.outcomes.byUser, s.outcomes.byClaude], [0, 0]);
 });

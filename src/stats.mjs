@@ -29,7 +29,7 @@ export function stats(root, now = Date.now(), { strays = true } = {}) {
   const reviewed = results.filter(r => !r.skipped && !r.reviewer?.error);
   const adj = reviewed.flatMap(r => r.adjudications || []);
   const count = (xs, f) => xs.filter(f).length;
-  const outcomes = ledger.filter(l => l.kind === 'finding-outcome');
+  const outcomes = [...new Map(ledger.filter(l => l.kind === 'finding-outcome').map(o => [`${o.id}#${o.index}`, o])).values()];   // latest per finding
   const old = (p) => { try { return now - statSync(p).mtimeMs > HOUR; } catch { return false; } };
   const turnsDir = join(dir, 'turns');
   const pendingTurns = existsSync(turnsDir) ? readdirSync(turnsDir).flatMap(s => listJson(join(turnsDir, s))) : [];
@@ -54,7 +54,7 @@ export function stats(root, now = Date.now(), { strays = true } = {}) {
     // Results delivered before 0.2.1 did not record whether maxFixRounds held them back.
     sentUnknown: reviewed.filter(r => r.delivered && r.sentToClaude === undefined).reduce((s, r) => s + (r.issues?.length || 0), 0),
     undelivered: count(results, r => !r.delivered && r.session !== 'manual'),
-    outcomes: { real: count(outcomes, o => o.verdict === 'real'), false: count(outcomes, o => o.verdict !== 'real') },
+    outcomes: { real: count(outcomes, o => o.verdict === 'real'), false: count(outcomes, o => o.verdict !== 'real'), byClaude: count(outcomes, o => String(o.by || '').startsWith('claude')), byUser: count(outcomes, o => !String(o.by || '').startsWith('claude')) },
     precision: calibration(dir),
     problems: {
       strayStateDirs: strays ? strayStateDirs(root) : [],
@@ -78,7 +78,7 @@ export function renderStats(s) {
     `checked        ${c.total}: ${c.confirmed} confirmed, ${c.refuted} refuted, ${c.uncertain} uncertain${c.error ? `, ${c.error} failed` : ''}`,
     `shown to you   ${s.shown} finding(s)`,
     `sent to Claude ${s.sentToClaude} confirmed finding(s)${s.withheld ? `; ${s.withheld} withheld by maxFixRounds` : ''}${s.sentUnknown ? `; ${s.sentUnknown} from older reviews that may or may not have been sent` : ''}${s.undelivered ? `; ${s.undelivered} review(s) not delivered yet` : ''}`,
-    `outcomes       ${s.outcomes.real} real, ${s.outcomes.false} false alarm(s) recorded`,
+    `outcomes       ${s.outcomes.real} real, ${s.outcomes.false} false alarm(s) recorded (${s.outcomes.byUser} by you, ${s.outcomes.byClaude} by Claude)`,
     `precision      ${Object.entries(s.precision).filter(([, v]) => v.outcomes).map(([b, v]) => `${b} ${Math.round(v.precision * 100)}% (${v.outcomes})`).join(', ') || 'priors only: record outcomes with polywatch outcome <id> <n> real|false'}`,
   ];
   const warn = [];

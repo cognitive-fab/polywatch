@@ -134,3 +134,14 @@ test('hooks: files written outside Edit/Write during the turn (e.g. by Bash) are
   const [f] = readdirSync(join(cwd, '.polywatch', 'results'));
   assert.deepEqual(JSON.parse(readFileSync(join(cwd, '.polywatch', 'results', f), 'utf8')).files, ['parser.py']);
 });
+
+test('outcome: --by and --dir record who judged it and where; the latest verdict per finding counts', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'pwo-'));
+  const other = mkdtempSync(join(tmpdir(), 'pwo-elsewhere-'));
+  const go = (...a) => spawnSync(process.execPath, [BIN, 'outcome', ...a], { cwd: other, encoding: 'utf8', env: ENV });
+  assert.equal(go('r1', '1', 'real', '--by', 'claude', '--dir', cwd, 'fixed in abc').status, 0);
+  assert.equal(go('r1', '1', 'false', '--dir', cwd, 'on second look, not a bug').status, 0);
+  const lines = readFileSync(join(cwd, '.polywatch', 'ledger.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  assert.deepEqual(lines.map(l => [l.by, l.verdict, l.note]), [['claude', 'real', 'fixed in abc'], ['user', 'false', 'on second look, not a bug']]);
+  assert.ok(!existsSync(join(other, '.polywatch', 'ledger.jsonl')), 'recorded in the wrong folder');
+});

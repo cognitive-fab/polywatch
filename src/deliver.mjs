@@ -1,6 +1,7 @@
 // Render results and decide what goes to the user (systemMessage) and to Claude (additionalContext).
 import { unlinkSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { listJson, readJson, writeJson, safeId } from './util.mjs';
 
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -41,9 +42,14 @@ function renderTestsForClaude(r) {
   return `polywatch ran the project's tests after your last change and they failed. ${DATA_NOTE}\n<polywatch-data>\nfiles: ${filesOf(r)}\ncommand: ${clip(r.tests.command, 200)}\n${clip(tail, 1500)}\n</polywatch-data>\nFind out whether your change caused the failure and fix it if so.`;
 }
 
-export function renderIssuesForClaude(r) {
-  const items = r.issues.map((f, i) => `${i + 1}. [${f.status}, ${clip(f.severity, 10)}] ${clip(f.file, 200)} ${clip(f.where, 200)}: ${clip(f.claim, 600)}${f.evidence ? ` (evidence: ${clip(f.evidence, 600)})` : ''}`);
-  return `polywatch reviewed your last change. A second model confirmed the defects below against the code. ${DATA_NOTE}\n<polywatch-data>\nfiles: ${filesOf(r)}\n${items.join('\n')}\n</polywatch-data>\nVerify each against the code. Fix the ones that hold; say briefly why any do not.`;
+// Claude checks each finding anyway; recording its verdict lets the ranking learn from every round.
+// The command is polywatch's own text (review id, numbers, paths), so it sits outside the data fence.
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'polywatch.mjs');
+
+export function renderIssuesForClaude(r, root) {
+  const numOf = (f) => (r.findings || []).findIndex(x => x.claim === f.claim) + 1 || 1;
+  const items = r.issues.map((f) => `${numOf(f)}. [${f.status}, ${clip(f.severity, 10)}] ${clip(f.file, 200)} ${clip(f.where, 200)}: ${clip(f.claim, 600)}${f.evidence ? ` (evidence: ${clip(f.evidence, 600)})` : ''}`);
+  return `polywatch reviewed your last change. A second model confirmed the defects below against the code. ${DATA_NOTE}\n<polywatch-data>\nfiles: ${filesOf(r)}\n${items.join('\n')}\n</polywatch-data>\nVerify each against the code. Fix the ones that hold; say briefly why any do not.\nThen record your verdict on each, one command per finding (real = the defect holds, false = it does not):\nnode "${BIN}" outcome ${r.id} <number> real|false --by claude${root ? ` --dir "${root}"` : ''} "<one-line reason>"`;
 }
 
 export function renderReport(results) {
@@ -77,7 +83,7 @@ export function collect(dir, session, cfg) {
     let msg = renderShort(r, seen);
     const forClaude = !r.skipped && (r.issues?.length || (r.tests && !r.tests.passed));
     if (forClaude && state.fixRounds < cfg.maxFixRounds) {
-      if (r.issues?.length) claude.push(renderIssuesForClaude(r));
+      if (r.issues?.length) claude.push(renderIssuesForClaude(r, dirname(dir)));
       if (r.tests && !r.tests.passed) claude.push(renderTestsForClaude(r));
       issueRound = true; r.sentToClaude = true;
       const extra = (r.issues || []).filter(i => !(r.shown || []).some(s => s.claim === i.claim)).length;

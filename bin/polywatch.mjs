@@ -117,11 +117,15 @@ async function main() {
     }
     if (cmd === 'outcome') {
       // Record whether a shown finding was real: polywatch outcome <reviewId> <findingNumber> real|false [note]
+      // --by claude|<name> records who judged it (default: user); --dir names the project when run from elsewhere.
+      const opt = (k) => { const i = args.indexOf(k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
+      const by = opt('--by') || 'user', dirOpt = opt('--dir');
       const [id, num, verdict, ...note] = args;
-      if (!id || !(+num >= 1) || !['real', 'false'].includes(verdict)) throw new Error('usage: polywatch outcome <reviewId> <findingNumber> real|false [note]');
-      appendJsonl(join(stateDir(projectRoot(process.cwd())), 'ledger.jsonl'), { kind: 'finding-outcome', id, index: +num, verdict, note: note.join(' '), at: new Date().toISOString() });
+      if (!id || !(+num >= 1) || !['real', 'false'].includes(verdict)) throw new Error('usage: polywatch outcome <reviewId> <findingNumber> real|false [--by claude] [--dir <project>] [note]');
+      const outRoot = dirOpt ? resolve(dirOpt) : projectRoot(process.cwd());
+      appendJsonl(join(stateDir(outRoot), 'ledger.jsonl'), { kind: 'finding-outcome', id, index: +num, verdict, by, note: note.join(' '), at: new Date().toISOString() });
       console.log(`recorded: finding ${num} of ${id} was ${verdict === 'real' ? 'a real defect' : 'a false alarm'}`);
-      const root = projectRoot(process.cwd()); refreshDashboard(root, loadConfig(root));
+      refreshDashboard(outRoot, loadConfig(outRoot));
       return;
     }
     if (cmd === 'dashboard') {

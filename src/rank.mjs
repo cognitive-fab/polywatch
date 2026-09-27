@@ -22,7 +22,9 @@ export function calibration(dir) {
   if (existsSync(p)) {
     const lines = readFileSync(p, 'utf8').trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
     const reviews = new Map(lines.filter(l => l.kind === 'review').map(l => [l.id, l]));
-    for (const o of lines.filter(l => l.kind === 'finding-outcome')) {
+    // One outcome per finding: a later verdict (a correction, or the user over Claude) replaces an earlier one.
+    const latest = new Map(lines.filter(l => l.kind === 'finding-outcome').map(o => [`${o.id}#${o.index}`, o]));
+    for (const o of latest.values()) {
       const f = reviews.get(o.id)?.findings?.[o.index - 1];
       if (!f) continue;
       const b = bucketOf(f);

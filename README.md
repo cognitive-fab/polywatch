@@ -110,7 +110,7 @@ git clone https://github.com/cognitive-fab/polywatch && claude --plugin-dir ./po
 ```bash
 polywatch report                             # recent reviews with ranked findings and evidence (the /trust skill runs this)
 polywatch review <files> --task "…"          # review files by hand
-polywatch outcome <id> <n> real|false [note] # was finding n of review id a real bug? this sets the weights
+polywatch outcome <id> <n> real|false [--by claude] [--dir <project>] [note]   # was finding n real? sets the weights; Claude records its own verdicts with --by claude
 polywatch calibration                        # current precision per kind of finding
 polywatch stats [dir]                        # cost, findings, what reached Claude, outcomes, and state problems for a project
 polywatch dashboard [dir] [--no-open]        # one-file HTML dashboard: running now, waiting on you (with the default), latest reviews, stuck
