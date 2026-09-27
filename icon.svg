@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="polywatch">
+  <rect width="256" height="256" rx="56" fill="#1D56C9"/>
+  <!-- an open eye over two lines of code: a reviewer watching the change -->
+  <path d="M40 112c22-34 54-52 88-52s66 18 88 52c-22 34-54 52-88 52s-66-18-88-52z" fill="#FFFFFF"/>
+  <circle cx="128" cy="112" r="30" fill="#1D56C9"/>
+  <circle cx="128" cy="112" r="12" fill="#FFFFFF"/>
+  <rect x="56" y="186" width="92" height="14" rx="7" fill="#FFFFFF" opacity="0.9"/>
+  <rect x="160" y="186" width="40" height="14" rx="7" fill="#7FE0A8"/>
+  <rect x="80" y="210" width="96" height="14" rx="7" fill="#FFFFFF" opacity="0.6"/>
+</svg>
