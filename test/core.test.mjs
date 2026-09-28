@@ -478,3 +478,17 @@ test('cost notice: shown once per machine', async () => {
     assert.equal(firstRunNotice(cfg), null);
   } finally { process.env.POLYWATCH_SPEND_DIR = saved; }
 });
+
+test('daily cap: each paid call is written to the ledger as it returns, so other workers see it at once', async () => {
+  const saved = process.env.POLYWATCH_SPEND_DIR;
+  process.env.POLYWATCH_SPEND_DIR = mkdtempSync(join(tmpdir(), 'pw-spend-'));
+  try {
+    const { spentToday } = await import('../plugin/src/spend.mjs');
+    const { jobPath } = fixture(RAFT);
+    let seenDuringAdjudication = null;
+    await runJob(jobPath, { review: async () => ({ text: JSON.stringify({ issues: ISSUES }), usd: 0.03 }),
+      adjudicate: async () => { seenDuringAdjudication ??= spentToday(); return { text: '{"holds":"no","evidence":"e"}', usd: 0.02 }; } });
+    assert.ok(Math.abs(seenDuringAdjudication - 0.03) < 1e-9, `ledger held ${seenDuringAdjudication} while the job was still running`);
+    assert.ok(spentToday() > 0.03);
+  } finally { process.env.POLYWATCH_SPEND_DIR = saved; }
+});

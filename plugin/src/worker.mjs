@@ -119,11 +119,15 @@ export async function runJob(jobPath, deps = {}) {
   const result = { id: job.id, session: job.session, createdAt: new Date().toISOString(), cost: 0, money: 0, notes: cfg.warnings.map(w => `Config: ${w}`) };
   const unpriced = new Set();
   // cost: every call's list price (the per-turn cap). money: only calls billed to an API account (the daily cap).
-  const spent = (call) => { result.cost += call.usd || 0; if (!call.plan) result.money += call.usd || 0; if (call.unpriced) unpriced.add(call.unpriced); };
-  const dayBefore = spentToday();
-  const dayLeft = () => cfg.budgetUsdPerDay - dayBefore - result.money;
+  // Money is written to the day's ledger as each call returns, and the ledger is read afresh before each
+  // call, so concurrent workers see each other's spending and a killed worker has already recorded its own.
+  const spent = (call) => {
+    result.cost += call.usd || 0;
+    if (!call.plan && call.usd > 0) { result.money += call.usd; recordSpend({ usd: call.usd, project: basename(job.cwd || ''), id: result.id }); }
+    if (call.unpriced) unpriced.add(call.unpriced);
+  };
+  const dayLeft = () => cfg.budgetUsdPerDay - spentToday();
   const paid = cfg.reviewer.provider !== 'claude-code' || cfg.adjudicator.provider !== 'claude-code';
-  const finishAndRecord = () => { recordSpend({ usd: result.money, project: basename(job.cwd || ''), id: result.id }); return finish(dir, jobPath, result, unpriced); };
 
   const units = buildUnits(job, cfg);
   const f = features(units);
@@ -134,7 +138,8 @@ export async function runJob(jobPath, deps = {}) {
     result.skipped = !units.length ? 'no reviewable files (all excluded or outside the project)' : `only ${f.changedLines} changed lines`;
     return dash(), finish(dir, jobPath, result);
   }
-  if (paid && dayLeft() <= 0) {
+  const dayBefore = spentToday();
+  if (paid && cfg.budgetUsdPerDay - dayBefore <= 0) {
     result.skipped = `daily budget of $${cfg.budgetUsdPerDay.toFixed(2)} reached ($${dayBefore.toFixed(2)} spent today across projects); raise "budgetUsdPerDay" in ~/.polywatch.json, or wait until tomorrow`;
     return dash(), finish(dir, jobPath, result);
   }
@@ -204,7 +209,7 @@ export async function runJob(jobPath, deps = {}) {
   result.issues = result.findings.filter(x => x.status === 'confirmed' && x.score >= cfg.minScore).slice(0, cfg.maxToClaude);
   if (r.tier === 'HARD' && !result.tests) result.notes.push('Hard change and no machine check configured: set "testCommand" in .polywatch.json, or run polygraph on the state machine.');
   if (result.tests && !result.tests.passed) result.notes.push(`Tests failed: ${cfg.testCommand}`);
-  const done = finishAndRecord();
+  const done = finish(dir, jobPath, result, unpriced);
   dash();
   return done;
 }

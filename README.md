@@ -106,7 +106,7 @@ git clone https://github.com/cognitive-fab/polywatch && claude --plugin-dir ./po
 - `price`: `[input, output]` in USD per million tokens, for a model polywatch has no price for (a local server, a new model). Without it, an unknown model is charged at the highest known price so the per-turn budget still holds, and the review says so.
 - `.polywatch/` gets its own `.gitignore`, so prompts, code and review results stay out of commits.
 - Anthropic spend limits: a workspace can have its own monthly limit below the organization's. If confirmation reports "workspace API usage limits", use a key from another workspace or raise that workspace's limit.
-- Privacy: changed files are sent to the reviewer's API (DeepSeek by default). Files matching `exclude` are never sent. For code that must not leave your control, set `reviewer.provider` to `anthropic` or point `baseUrl` (in `~/.polywatch.json`) at a local OpenAI-compatible server.
+- Privacy: changed files are sent to the reviewer's API (DeepSeek by default). Files matching `exclude` are never sent. For code that must not leave your control, set `reviewer.provider` to `anthropic` or point `baseUrl` (in `~/.polywatch.json`) at a local OpenAI-compatible server. Full policy: [PRIVACY.md](PRIVACY.md).
 
 ## Commands
 
