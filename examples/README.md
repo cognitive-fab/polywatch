@@ -4,8 +4,8 @@ Four small files, reviewed with `polywatch review`, DeepSeek V4.1-Flash as the r
 
 ```bash
 cd examples
-node ../bin/polywatch.mjs review lock-bug.js --task "Model a two-thread spinlock: acquire and release"
-node ../bin/polywatch.mjs review vote-bug.js --task "Implement Raft vote request handling like etcd raft.go"
+node ../plugin/bin/polywatch.mjs review lock-bug.js --task "Model a two-thread spinlock: acquire and release"
+node ../plugin/bin/polywatch.mjs review vote-bug.js --task "Implement Raft vote request handling like etcd raft.go"
 ```
 
 ## Results (v0.2, 2026-09-24)

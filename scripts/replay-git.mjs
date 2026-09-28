@@ -14,9 +14,9 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { runJob } from '../src/worker.mjs';
-import { callAnthropic } from '../src/reviewers/anthropic.mjs';
-import { parseJson } from '../src/prompts.mjs';
+import { runJob } from '../plugin/src/worker.mjs';
+import { callAnthropic } from '../plugin/src/reviewers/anthropic.mjs';
+import { parseJson } from '../plugin/src/prompts.mjs';
 
 const SRC = /\.(ts|tsx|js|mjs|cjs)$/i;
 const SKIP = /(^|\/)(test|tests|__tests__|docs?|node_modules|dist|build|vendor|fixtures?)\//i;

@@ -3,19 +3,19 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { features, route } from '../src/router.mjs';
-import { calibration, rank, PRIOR_PRECISION } from '../src/rank.mjs';
-import { runJob, excerptFor, sameFile } from '../src/worker.mjs';
-import { parseJson } from '../src/prompts.mjs';
-import { priceAnthropic } from '../src/reviewers/anthropic.mjs';
-import { priceDeepseek } from '../src/reviewers/deepseek.mjs';
-import { collect } from '../src/deliver.mjs';
-import { stateDir, loadConfig, inScope, projectRoot } from '../src/config.mjs';
-import { stats, renderStats } from '../src/stats.mjs';
-import { changedSince } from '../src/scan.mjs';
-import { dashboardData, writeDashboard, refreshDashboard, dashboardPath } from '../src/dashboard.mjs';
+import { features, route } from '../plugin/src/router.mjs';
+import { calibration, rank, PRIOR_PRECISION } from '../plugin/src/rank.mjs';
+import { runJob, excerptFor, sameFile } from '../plugin/src/worker.mjs';
+import { parseJson } from '../plugin/src/prompts.mjs';
+import { priceAnthropic } from '../plugin/src/reviewers/anthropic.mjs';
+import { priceDeepseek } from '../plugin/src/reviewers/deepseek.mjs';
+import { collect } from '../plugin/src/deliver.mjs';
+import { stateDir, loadConfig, inScope, projectRoot } from '../plugin/src/config.mjs';
+import { stats, renderStats } from '../plugin/src/stats.mjs';
+import { changedSince } from '../plugin/src/scan.mjs';
+import { dashboardData, writeDashboard, refreshDashboard, dashboardPath } from '../plugin/src/dashboard.mjs';
 import { spawnSync } from 'node:child_process';
-import { writeJson, globToRegex } from '../src/util.mjs';
+import { writeJson, globToRegex } from '../plugin/src/util.mjs';
 
 // Keep the developer's own ~/.polywatch.json out of the tests.
 process.env.POLYWATCH_USER_CONFIG = join(tmpdir(), 'polywatch-test-no-user-config.json');
@@ -372,7 +372,7 @@ test("provider 'claude-code': the adjudicator runs through claude -p without too
   process.env.POLYWATCH_CLAUDE_CMD = JSON.stringify([process.execPath, join(import.meta.dirname, 'fake-claude.mjs')]);
   process.env.ANTHROPIC_API_KEY = 'sk-ant-should-not-reach-the-child';
   try {
-    const { callClaudeCode } = await import('../src/reviewers/claudecode.mjs');
+    const { callClaudeCode } = await import('../plugin/src/reviewers/claudecode.mjs');
     const raw = await callClaudeCode({ model: 'claude-opus-5-5', prompt: 'A reviewer made a specific claim ...' });
     const echoed = JSON.parse(raw.text);
     assert.equal(echoed.holds, 'yes');
@@ -389,7 +389,7 @@ test('claude-code call: flags make it tool-free and hook-free, and the API key i
   process.env.POLYWATCH_CLAUDE_CMD = JSON.stringify([process.execPath, join(import.meta.dirname, 'fake-claude.mjs')]);
   process.env.ANTHROPIC_API_KEY = 'sk-ant-x';
   try {
-    const { callClaudeCode } = await import('../src/reviewers/claudecode.mjs');
+    const { callClaudeCode } = await import('../plugin/src/reviewers/claudecode.mjs');
     const r = await callClaudeCode({ model: 'm', prompt: 'echo' });
     assert.ok(!r.error, r.error);
     const seen = JSON.parse(r.text);
@@ -420,4 +420,18 @@ test('keys: the plugin setting (CLAUDE_PLUGIN_OPTION_*) is used before the envir
   } finally {
     for (const [k, v] of [['CLAUDE_PLUGIN_OPTION_DEEPSEEK_API_KEY', saved.a], ['DEEPSEEK_API_KEY', saved.b]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
+});
+
+test('worker: a reviewer answer whose issues is not a list, and an id with path parts, stay inside .polywatch', async () => {
+  const { dir, jobPath } = fixture(RAFT);
+  const job = JSON.parse(readFileSync(jobPath, 'utf8')); job.id = '../../escape'; writeJson(jobPath, job);
+  const r = await runJob(jobPath, { review: async () => ({ text: '{"verdict":"REJECT","issues":"everything is wrong"}', usd: 0 }) });
+  assert.deepEqual(r.findings, []);
+  assert.ok(existsSync(join(dir, 'results', '______escape.json')));
+});
+
+test('excerpt: never longer than its budget, headers included', () => {
+  const big = 'x'.repeat(50000);
+  const units = [{ rel: 'a.js', file: '/r/a.js', current: big }, { rel: 'b.js', file: '/r/b.js', current: 'fooBar()\n' + big }];
+  assert.ok(excerptFor(units, { file: 'a.js', where: 'fooBar', claim: '`fooBar` is wrong' }, 40000).length <= 40000);
 });

@@ -21,7 +21,7 @@ import { join, resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const POLYWATCH = resolve(HERE, '..');
+const POLYWATCH = resolve(HERE, '..', 'plugin');
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i >= 0 ? process.argv[i + 1] : d; };
 const DATA = resolve(arg('data', 'bench-data/polyglot-benchmark'));
 const OUT = resolve(arg('out', join(HERE, 'out', 'pilot')));

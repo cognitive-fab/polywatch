@@ -1,5 +1,5 @@
 // Streamed DeepSeek call (OpenAI-compatible). Streaming keeps long reasoning calls alive.
-// Prices per 1M tokens, captured 2026-09-23 from https://api-docs.deepseek.com/quick_start/pricing
+// Prices per 1M tokens, captured 2026-09-23 from DeepSeek's pricing page (quick_start/pricing in its API docs)
 const PRICES = {
   'deepseek-flash': { off: [0.003, 0.15, 0.6], peak: [0.006, 0.3, 1.2] },
   'deepseek-v4-pro': { off: [0.022, 0.66, 1.98], peak: [0.044, 1.32, 3.96] },

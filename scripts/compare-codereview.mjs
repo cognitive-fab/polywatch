@@ -14,9 +14,9 @@
 // description is the study's task prompt; the change is the whole spec file.
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { callAnthropic } from '../src/reviewers/anthropic.mjs';
-import { callDeepseek } from '../src/reviewers/deepseek.mjs';
-import { parseJson } from '../src/prompts.mjs';
+import { callAnthropic } from '../plugin/src/reviewers/anthropic.mjs';
+import { callDeepseek } from '../plugin/src/reviewers/deepseek.mjs';
+import { parseJson } from '../plugin/src/prompts.mjs';
 
 const arg = (name, dflt) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : dflt; };
 const readJsonl = (p) => existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(l => l.trim()).map(l => JSON.parse(l)) : [];

@@ -82,7 +82,8 @@ export function excerptFor(units, claim, budget = 40000) {
   if (!primary) return '';
   const anchors = anchorsOf(claim);
   const parts = [];
-  const add = (label, body) => { if (!body || budget <= 0) return; const b = body.slice(0, budget); parts.push(`// ===== ${label} =====\n${b}`); budget -= b.length; };
+  // Headers and the separators between parts count against the budget too, so the excerpt stays within it.
+  const add = (label, body) => { const head = `// ===== ${label} =====\n`, room = budget - head.length - 2; if (!body || room <= 0) return; const b = body.slice(0, room); parts.push(head + b); budget -= head.length + b.length + 2; };
   if (primary.current.length <= budget * 0.75) add(primary.rel, primary.current);
   else add(`${primary.rel} (excerpts around the cited code)`, windows(primary.current, anchors, budget * 0.75) || primary.current.slice(0, budget * 0.75));
   for (const u of units) if (u !== primary && anchors.length) add(`${u.rel} (excerpts)`, windows(u.current, anchors, Math.min(budget, 8000), 25));
@@ -144,7 +145,7 @@ export async function runJob(jobPath, deps = {}) {
   if (!rv.error && !verdict) result.notes.push(`Reviewer returned no answer (finish reason: ${rv.finish || 'unknown'}).`);
   // The reviewer's ACCEPT/REJECT verdict is kept for the record but not used: on real project
   // history it rejected commits that were later fixed and commits that were not at the same rate.
-  const candidates = (verdict?.issues || []).filter(i => i && i.claim);
+  const candidates = (Array.isArray(verdict?.issues) ? verdict.issues : []).filter(i => i && typeof i.claim === 'string');
 
   // Step 2: machine check for hard changes, when the project has one.
   if (r.tier === 'HARD' && cfg.testCommand) {
@@ -199,12 +200,12 @@ export async function runJob(jobPath, deps = {}) {
 
 function finish(dir, jobPath, result, unpriced = new Set()) {
   if (unpriced.size) result.notes.push(`No price known for ${[...unpriced].join(', ')}; cost was estimated at the highest known price. Set "price": [input, output] (USD per million tokens) for it in ~/.polywatch.json.`);
-  writeJson(join(dir, 'results', `${result.id}.json`), result);
+  writeJson(join(dir, 'results', `${safeId(result.id)}.json`), result);
   // Marker for delivery on the next prompt; manual reviews are printed directly instead.
   if (result.session && result.session !== 'manual') {
     const inbox = join(dir, 'inbox', safeId(result.session));
     mkdirSync(inbox, { recursive: true });
-    writeFileSync(join(inbox, `${result.id}.json`), '{}');
+    writeFileSync(join(inbox, `${safeId(result.id)}.json`), '{}');
   }
   appendJsonl(join(dir, 'ledger.jsonl'), { kind: 'review', ...result, units: undefined });
   try { if (existsSync(jobPath)) unlinkSync(jobPath); } catch {}

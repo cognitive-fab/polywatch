@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "polywatch",
-      "source": "./",
+      "source": "./plugin",
       "description": "Background bug hunting on code Claude writes: cheap review, Opus confirmation, top findings only."
     }
   ]

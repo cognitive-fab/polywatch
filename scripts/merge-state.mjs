@@ -4,8 +4,8 @@
 // Usage: node scripts/merge-state.mjs <project> [--apply]   (without --apply it only lists what it would do)
 import { existsSync, readdirSync, readFileSync, appendFileSync, renameSync, mkdirSync, rmSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { stateDir } from '../src/config.mjs';
-import { readJson, writeJson } from '../src/util.mjs';
+import { stateDir } from '../plugin/src/config.mjs';
+import { readJson, writeJson } from '../plugin/src/util.mjs';
 
 const [rootArg, flag] = process.argv.slice(2);
 if (!rootArg) { console.error('usage: node scripts/merge-state.mjs <project> [--apply]'); process.exit(1); }

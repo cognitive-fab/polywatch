@@ -76,7 +76,7 @@ claude plugin marketplace add cognitive-fab/polywatch
 claude plugin install polywatch@polywatch
 
 # or try a checkout for one session
-git clone https://github.com/cognitive-fab/polywatch && claude --plugin-dir ./polywatch
+git clone https://github.com/cognitive-fab/polywatch && claude --plugin-dir ./polywatch/plugin
 ```
 
 ## Configure (`.polywatch.json` in the project root, or `~/.polywatch.json` for every project; all optional)

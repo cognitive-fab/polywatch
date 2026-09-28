@@ -6,9 +6,9 @@ import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lastUserText } from '../src/util.mjs';
+import { lastUserText } from '../plugin/src/util.mjs';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'polywatch.mjs');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'plugin', 'bin', 'polywatch.mjs');
 // Keep the developer's own ~/.polywatch.json and keys out of the tests.
 const ENV = { ...process.env, DEEPSEEK_API_KEY: '', ANTHROPIC_API_KEY: '', POLYWATCH_USER_CONFIG: join(tmpdir(), 'polywatch-test-no-user-config.json'), CLAUDE_PROJECT_DIR: '' };
 const run = (args, input, env = {}) => spawnSync(process.execPath, [BIN, ...args], { input: JSON.stringify(input), encoding: 'utf8', env: { ...ENV, ...env } });
