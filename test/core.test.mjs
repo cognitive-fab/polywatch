@@ -369,7 +369,7 @@ test('dashboard: written only on request, then kept current; repository text can
 });
 
 test("provider 'claude-code': the adjudicator runs through claude -p without tools, hooks or the API key", async () => {
-  const { cwd, jobPath } = fixture(RAFT, { adjudicator: { provider: 'claude-code', model: 'claude-opus-5-5' } });
+  const { jobPath } = fixture(RAFT, { adjudicator: { provider: 'claude-code', model: 'claude-opus-5-5' } });
   const prev = { cmd: process.env.POLYWATCH_CLAUDE_CMD, key: process.env.ANTHROPIC_API_KEY };
   process.env.POLYWATCH_CLAUDE_CMD = JSON.stringify([process.execPath, join(import.meta.dirname, 'fake-claude.mjs')]);
   process.env.ANTHROPIC_API_KEY = 'sk-ant-should-not-reach-the-child';

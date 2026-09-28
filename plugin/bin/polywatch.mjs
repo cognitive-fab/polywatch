@@ -110,7 +110,7 @@ async function main() {
       // Manual review of files as if they were written in one turn: polywatch review <file>... [--task "..."]
       const cwd = process.cwd(); const dir = stateDir(cwd);
       const ti = args.indexOf('--task'); const task = ti >= 0 ? args[ti + 1] : null;
-      const files = ti >= 0 ? args.filter((a, i) => i !== ti && i !== ti + 1) : args;
+      const files = ti >= 0 ? args.filter((_, i) => i !== ti && i !== ti + 1) : args;
       const id = `${Date.now().toString(36)}-manual`;
       const jobPath = join(dir, 'jobs', `${id}.json`);
       writeJson(jobPath, { id, session: 'manual', cwd, task, edits: files.map(f => ({ file: resolve(cwd, f), tool: 'Write', before: null, after: readFileSync(f, 'utf8') })) });

@@ -147,7 +147,6 @@ function score(out) {
       rows.push(`| ${name}${t ? `, ${t}` : ''} | ${pct(M.filter(pwShown).length, M.length)} | ${pct(M.filter(pwConf).length, M.length)} | ${pct(M.filter(crKept).length, M.length)} | ${pct(M.filter(pwRaw).length, M.length)} | ${pct(M.filter(crRaw).length, M.length)} |`);
     }
   }
-  const V = lab('verified');
   const vRows = [null, 'spin', 'locksvc', 'etcd'].map(t => { const X = lab('verified', t); if (!X.length) return null; return `| verified specs${t ? `, ${t}` : ''} (${X.length}) | ${pct(X.filter(id => pw.get(id).result.shown.length > 0).length, X.length)} | ${pct(X.filter(id => pw.get(id).result.issues.length > 0).length, X.length)} | ${pct(X.filter(id => cr.get(id).kept.length > 0).length, X.length)} | ${pct(X.filter(id => cr.get(id).raw.length > 0).length, X.length)} |`; }).filter(Boolean);
   const cost = (sel, f) => avg(ids.filter(sel).map(f));
   const md = [
