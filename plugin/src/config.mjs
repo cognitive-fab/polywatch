@@ -12,6 +12,7 @@ export const DEFAULTS = {
   testCommand: null,            // e.g. "npm test"; run for HARD changes when set
   testTimeoutSec: 300,
   budgetUsdPerTurn: 0.50,       // hard stop for reviewer + adjudicator spend per turn
+  budgetUsdPerDay: 5,           // hard stop for money spent per local day, across all projects (plan calls not counted)
   maxFileBytes: 60000,          // per file sent to a reviewer
   maxFixRounds: 2,              // consecutive turns in which issues are sent back to Claude
   exclude: ['.env', '.env.*', '*.pem', '*.key', '*secret*', '*credential*', 'node_modules/**', '.git/**', '.polywatch/**'],
@@ -75,6 +76,10 @@ export function loadConfig(cwd) {
     if (dropped.length) warnings.push(`.polywatch.json settings ignored because this project is not trusted: ${dropped.join(', ')}. Set them in ${userConfigPath()}, or add this project to "trustedProjects" there.`);
   }
   const base = merge(structuredClone(DEFAULTS), user);   // clone: filled in below, DEFAULTS must stay untouched
+  // A cloned repository may lower the spending caps but never raise them.
+  if (!trusted) for (const k of ['budgetUsdPerTurn', 'budgetUsdPerDay']) {
+    if (typeof project[k] === 'number' && project[k] > base[k]) { warnings.push(`.polywatch.json asks for ${k} ${project[k]}, above your ${base[k]}; kept at ${base[k]} (only your own settings can raise a cap).`); delete project[k]; }
+  }
   const cfg = merge(base, project);
   // Per-provider key variables and endpoints; the user file's "providers" overrides the built-in ones.
   const providers = merge(PROVIDERS, user.providers && typeof user.providers === 'object' ? user.providers : {});

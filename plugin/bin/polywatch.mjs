@@ -10,6 +10,7 @@ import { runJob } from '../src/worker.mjs';
 import { changedSince } from '../src/scan.mjs';
 import { writeDashboard, refreshDashboard, openInBrowser, dashboardPath } from '../src/dashboard.mjs';
 import { collect, renderReport } from '../src/deliver.mjs';
+import { firstRunNotice } from '../src/spend.mjs';
 
 const SELF = fileURLToPath(import.meta.url);
 const out = (obj) => { if (obj) process.stdout.write(JSON.stringify(obj)); };
@@ -83,6 +84,8 @@ async function hook(kind) {
     if (got && existsSync(dashboardPath(cwd))) spawn(process.execPath, [SELF, 'dashboard', cwd, '--refresh'], { cwd, detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref();
     // Config problems are shown once per session, when it starts.
     const warn = kind === 'session' ? cfg.warnings.map(w => `polywatch config: ${w}`) : [];
+    // What polywatch costs, once per machine, before anything is spent.
+    if (kind === 'session') { const notice = firstRunNotice(cfg); if (notice) warn.unshift(notice); }
     if (!got && !warn.length) return;
     const eventName = kind === 'prompt' ? 'UserPromptSubmit' : 'SessionStart';
     const o = { systemMessage: [...warn, got?.systemMessage].filter(Boolean).join('\n') };

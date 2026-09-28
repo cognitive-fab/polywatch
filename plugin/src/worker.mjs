@@ -1,6 +1,6 @@
 // Background review of one turn: route, list candidate defects, confirm the serious ones, rank, log.
 import { readFileSync, existsSync, unlinkSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, relative, sep, isAbsolute } from 'node:path';
+import { join, relative, sep, isAbsolute, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadConfig, stateDir } from './config.mjs';
 import { readJson, writeJson, appendJsonl, isExcluded, safeId } from './util.mjs';
@@ -10,6 +10,7 @@ import { reviewPrompt, claimPrompt, parseJson } from './prompts.mjs';
 import { callDeepseek } from './reviewers/deepseek.mjs';
 import { callAnthropic } from './reviewers/anthropic.mjs';
 import { refreshDashboard } from './dashboard.mjs';
+import { spentToday, recordSpend } from './spend.mjs';
 import { callClaudeCode } from './reviewers/claudecode.mjs';
 
 export function buildUnits(job, cfg) {
@@ -115,9 +116,14 @@ export async function runJob(jobPath, deps = {}) {
   dash();
   const review = deps.review || ((p) => callRole(cfg, 'reviewer', p));
   const adjudicate = deps.adjudicate || ((p) => callRole(cfg, 'adjudicator', p, 64000));
-  const result = { id: job.id, session: job.session, createdAt: new Date().toISOString(), cost: 0, notes: cfg.warnings.map(w => `Config: ${w}`) };
+  const result = { id: job.id, session: job.session, createdAt: new Date().toISOString(), cost: 0, money: 0, notes: cfg.warnings.map(w => `Config: ${w}`) };
   const unpriced = new Set();
-  const spent = (call) => { result.cost += call.usd || 0; if (call.unpriced) unpriced.add(call.unpriced); };
+  // cost: every call's list price (the per-turn cap). money: only calls billed to an API account (the daily cap).
+  const spent = (call) => { result.cost += call.usd || 0; if (!call.plan) result.money += call.usd || 0; if (call.unpriced) unpriced.add(call.unpriced); };
+  const dayBefore = spentToday();
+  const dayLeft = () => cfg.budgetUsdPerDay - dayBefore - result.money;
+  const paid = cfg.reviewer.provider !== 'claude-code' || cfg.adjudicator.provider !== 'claude-code';
+  const finishAndRecord = () => { recordSpend({ usd: result.money, project: basename(job.cwd || ''), id: result.id }); return finish(dir, jobPath, result, unpriced); };
 
   const units = buildUnits(job, cfg);
   const f = features(units);
@@ -126,6 +132,10 @@ export async function runJob(jobPath, deps = {}) {
 
   if (!units.length || f.changedLines < cfg.minChangedLines) {
     result.skipped = !units.length ? 'no reviewable files (all excluded or outside the project)' : `only ${f.changedLines} changed lines`;
+    return dash(), finish(dir, jobPath, result);
+  }
+  if (paid && dayLeft() <= 0) {
+    result.skipped = `daily budget of $${cfg.budgetUsdPerDay.toFixed(2)} reached ($${dayBefore.toFixed(2)} spent today across projects); raise "budgetUsdPerDay" in ~/.polywatch.json, or wait until tomorrow`;
     return dash(), finish(dir, jobPath, result);
   }
 
@@ -162,6 +172,7 @@ export async function runJob(jobPath, deps = {}) {
   result.adjudications = [];
   for (const claim of eligible.slice(0, cfg.adjudicator.maxClaims)) {
     if (result.cost >= cfg.budgetUsdPerTurn) { result.notes.push('Per-turn budget reached; remaining claims were not checked.'); break; }
+    if (cfg.adjudicator.provider !== 'claude-code' && dayLeft() <= 0) { result.notes.push(`Daily budget of $${cfg.budgetUsdPerDay.toFixed(2)} reached; remaining claims were not checked.`); break; }
     const inc = cfg.adjudicator.includeRequest ?? 'short';          // 'short' (requests up to 20,000 chars) | 'always' | 'never'
     const request = job.task && (inc === 'always' || (inc === 'short' && job.task.length <= 20000)) ? job.task : null;
     const prompt = claimPrompt({ claim, excerpt: excerptFor(units, claim), request });
@@ -193,7 +204,7 @@ export async function runJob(jobPath, deps = {}) {
   result.issues = result.findings.filter(x => x.status === 'confirmed' && x.score >= cfg.minScore).slice(0, cfg.maxToClaude);
   if (r.tier === 'HARD' && !result.tests) result.notes.push('Hard change and no machine check configured: set "testCommand" in .polywatch.json, or run polygraph on the state machine.');
   if (result.tests && !result.tests.passed) result.notes.push(`Tests failed: ${cfg.testCommand}`);
-  const done = finish(dir, jobPath, result, unpriced);
+  const done = finishAndRecord();
   dash();
   return done;
 }

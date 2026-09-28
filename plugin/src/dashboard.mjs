@@ -91,6 +91,7 @@ export function dashboardData(root, cfg, now = Date.now()) {
     generatedAt: now, project: basename(root), root,
     style: { theme: 'light', density: 'compact', accent: '#1D56C9', ...(cfg.dashboard || {}) },
     totals: { reviews: s.reviews, reviewed: s.reviews - s.skipped - s.reviewerErrors, confirmed: s.checked.confirmed, refuted: s.checked.refuted, sent: s.sentToClaude, withheld: s.withheld,
+      spentToday: s.today.usd, dayCap: cfg.budgetUsdPerDay,
       real: s.outcomes.real, falseAlarms: s.outcomes.false, byClaude: s.outcomes.byClaude, usd: s.cost.total, usdToday: today.usd, reviewsToday: today.reviews },
     running, recording, waiting, questions, heldMore: Math.max(0, held.length - 5), questionCount: unrated.length + held.length + (cfg.warnings || []).length, stuck: stuck.slice(0, 12), recent, days,
   };
@@ -200,7 +201,7 @@ footer a{color:var(--muted)}
 
   var k = el('div', 'kpis');
   [[T.reviewed + ' / ' + T.reviews, 'turns reviewed'], [T.confirmed, 'confirmed by Opus'], [T.sent, 'sent to Claude' + (T.withheld ? ' (' + T.withheld + ' held back)' : '')],
-   [T.real + ' / ' + T.falseAlarms, 'real / false alarm' + (T.byClaude ? ' (' + T.byClaude + ' judged by Claude)' : '')], [usd(T.usd), 'review cost, ' + usd(T.usdToday) + ' today'], [D.questionCount, 'waiting on you']].forEach(function (x) {
+   [T.real + ' / ' + T.falseAlarms, 'real / false alarm' + (T.byClaude ? ' (' + T.byClaude + ' judged by Claude)' : '')], [usd(T.usd), 'review cost · today ' + usd(T.spentToday) + ' of ' + usd(T.dayCap) + ' daily cap'], [D.questionCount, 'waiting on you']].forEach(function (x) {
     k.appendChild(add(el('div', 'kpi'), el('div', 'v', String(x[0])), el('div', 'l', x[1])));
   });
   app.appendChild(k);

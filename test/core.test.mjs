@@ -19,6 +19,8 @@ import { writeJson, globToRegex } from '../plugin/src/util.mjs';
 
 // Keep the developer's own ~/.polywatch.json out of the tests.
 process.env.POLYWATCH_USER_CONFIG = join(tmpdir(), 'polywatch-test-no-user-config.json');
+// ...and the real daily spend ledger.
+process.env.POLYWATCH_SPEND_DIR = mkdtempSync(join(tmpdir(), 'pw-spend-'));
 
 const unit = (after) => [{ file: 'x.js', rel: 'x.js', edits: [{ before: null, after }], current: after }];
 
@@ -434,4 +436,45 @@ test('excerpt: never longer than its budget, headers included', () => {
   const big = 'x'.repeat(50000);
   const units = [{ rel: 'a.js', file: '/r/a.js', current: big }, { rel: 'b.js', file: '/r/b.js', current: 'fooBar()\n' + big }];
   assert.ok(excerptFor(units, { file: 'a.js', where: 'fooBar', claim: '`fooBar` is wrong' }, 40000).length <= 40000);
+});
+
+test('daily cap: money spent today across projects stops paid reviews; plan calls are not counted', async () => {
+  const saved = process.env.POLYWATCH_SPEND_DIR;
+  process.env.POLYWATCH_SPEND_DIR = mkdtempSync(join(tmpdir(), 'pw-spend-'));
+  try {
+    const { recordSpend, spentToday } = await import('../plugin/src/spend.mjs');
+    const planReview = async () => ({ text: '{"issues":[]}', usd: 0.2, plan: true });
+    const a = fixture(RAFT);
+    await runJob(a.jobPath, { review: planReview });
+    assert.equal(spentToday(), 0, 'a plan call was counted as money');
+    recordSpend({ usd: 5, project: 'other', id: 'x' });
+    const b = fixture(RAFT);
+    const r = await runJob(b.jobPath, { review });
+    assert.match(r.skipped, /daily budget of \$5\.00 reached \(\$5\.00 spent today/);
+    const c = fixture(RAFT, { reviewer: { provider: 'claude-code' }, adjudicator: { provider: 'claude-code' } });
+    const r2 = await runJob(c.jobPath, { review: planReview, adjudicate: async () => ({ text: '{"holds":"no","evidence":"e"}', usd: 0.1, plan: true }) });
+    assert.ok(!r2.skipped, 'a review on the plan was stopped by the money cap');
+  } finally { process.env.POLYWATCH_SPEND_DIR = saved; }
+});
+
+test('daily cap: a cloned repository can lower the caps but not raise them', () => {
+  const up = mkdtempSync(join(tmpdir(), 'pwc-'));
+  writeFileSync(join(up, '.polywatch.json'), JSON.stringify({ budgetUsdPerDay: 500, budgetUsdPerTurn: 10 }));
+  const cu = loadConfig(up);
+  assert.deepEqual([cu.budgetUsdPerDay, cu.budgetUsdPerTurn], [5, 0.5]);
+  assert.match(cu.warnings.join(' '), /budgetUsdPerDay 500, above your 5/);
+  const down = mkdtempSync(join(tmpdir(), 'pwc-'));
+  writeFileSync(join(down, '.polywatch.json'), JSON.stringify({ budgetUsdPerDay: 1 }));
+  assert.equal(loadConfig(down).budgetUsdPerDay, 1);
+});
+
+test('cost notice: shown once per machine', async () => {
+  const saved = process.env.POLYWATCH_SPEND_DIR;
+  process.env.POLYWATCH_SPEND_DIR = mkdtempSync(join(tmpdir(), 'pw-spend-'));
+  try {
+    const { firstRunNotice } = await import('../plugin/src/spend.mjs');
+    const cfg = loadConfig(mkdtempSync(join(tmpdir(), 'pwc-')));
+    assert.match(firstRunNotice(cfg), /\$0\.50 per turn and \$5\.00 per day/);
+    assert.equal(firstRunNotice(cfg), null);
+  } finally { process.env.POLYWATCH_SPEND_DIR = saved; }
 });

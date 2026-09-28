@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { listJson, readJson } from './util.mjs';
 import { calibration } from './rank.mjs';
+import { spentToday } from './spend.mjs';
 
 const HOUR = 3600e3;
 export const readJsonl = (p) => existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : [];
@@ -56,6 +57,7 @@ export function stats(root, now = Date.now(), { strays = true } = {}) {
     undelivered: count(results, r => !r.delivered && r.session !== 'manual'),
     outcomes: { real: count(outcomes, o => o.verdict === 'real'), false: count(outcomes, o => o.verdict !== 'real'), byClaude: count(outcomes, o => String(o.by || '').startsWith('claude')), byUser: count(outcomes, o => !String(o.by || '').startsWith('claude')) },
     precision: calibration(dir),
+    today: { usd: spentToday() },
     problems: {
       strayStateDirs: strays ? strayStateDirs(root) : [],
       strandedTurnFiles: pendingTurns.filter(old).length,
@@ -73,6 +75,7 @@ export function renderStats(s) {
     `reviews        ${s.reviews} in ${s.sessions} session(s): ${s.reviews - s.skipped - s.reviewerErrors} reviewed, ${s.skipped} skipped, ${s.reviewerErrors} reviewer errors`,
     `tiers          ${Object.entries(s.tiers).map(([k, v]) => `${k} ${v}`).join(', ') || '-'}`,
     `cost           ${$(s.cost.total)} (reviewer ${$(s.cost.reviewer)}, adjudicator ${$(s.cost.adjudicator)})${s.reviews ? `, ${$(s.cost.total / s.reviews)} per review` : ''}`,
+    `today          $${s.today.usd.toFixed(2)} spent on API accounts across all projects (daily cap in ~/.polywatch.json: budgetUsdPerDay)`,
     `reviewer time  median ${Math.round(s.reviewerSeconds.median)} s, max ${Math.round(s.reviewerSeconds.max)} s`,
     `candidates     ${s.candidates} raised by the reviewer`,
     `checked        ${c.total}: ${c.confirmed} confirmed, ${c.refuted} refuted, ${c.uncertain} uncertain${c.error ? `, ${c.error} failed` : ''}`,

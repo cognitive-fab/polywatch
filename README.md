@@ -84,7 +84,8 @@ git clone https://github.com/cognitive-fab/polywatch && claude --plugin-dir ./po
 ```jsonc
 {
   "testCommand": "npm test",          // ~/.polywatch.json or a trusted project only, see below
-  "budgetUsdPerTurn": 0.5,
+  "budgetUsdPerTurn": 0.5,            // per turn; a project file can lower it, only yours can raise it
+  "budgetUsdPerDay": 5,               // money per day across all projects; reviews stop for the day when reached
   "confirm": "top",
   "maxFindings": 2,                   // what you see per turn
   "maxToClaude": 5,                   // confirmed findings sent to Claude per turn
