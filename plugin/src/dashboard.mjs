@@ -52,7 +52,9 @@ export function dashboardData(root, cfg, now = Date.now()) {
     ask: `${unrated.length} confirmed finding${unrated.length > 1 ? 's have' : ' has'} no outcome yet. Were they real?`,
     fallback: `They stay unrated, and ranking keeps using the starting estimates (confirmed high ${Math.round(PRIOR_PRECISION['confirmed:high'] * 100)}%, medium ${Math.round(PRIOR_PRECISION['confirmed:medium'] * 100)}%).`,
     command: 'polywatch outcome <review id> <n> real|false, or ask Claude to record the ones it fixed' });
-  const held = results.filter(r => r.sentToClaude === false && r.issues?.length);
+  // Held-back findings stop being a question once each has an outcome.
+  const numOf = (r, x) => (r.findings || []).findIndex(y => y.claim === x.claim) + 1;
+  const held = results.filter(r => r.sentToClaude === false && r.issues?.some(x => !outcomes.has(`${r.id}#${numOf(r, x)}`)));
   for (const r of held.slice(0, 5)) {
     questions.push({ kind: 'withheld', at: Date.parse(r.createdAt), review: r.id, claim: r.issues.map(i => i.claim).join(' / '),
       ask: `${r.issues.length} confirmed finding${r.issues.length > 1 ? 's were' : ' was'} held back from Claude after two fix rounds in a row. Send them?`,

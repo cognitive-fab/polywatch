@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { listJson, readJson, writeJson, safeId } from './util.mjs';
 
 const pct = (x) => `${Math.round(x * 100)}%`;
-const line = (f, n) => `${n}. [${f.status}${f.severity ? ', ' + f.severity : ''}] ${f.file} ${f.where || ''}: ${f.claim}`;
+// One finding per line: model and repository text is flattened and capped so it cannot add lines of
+// its own to what the user reads (a fake "confirmed" row, say).
+const flat = (x, n) => { const t = [...String(x ?? '')].map(c => (c.charCodeAt(0) < 32 ? ' ' : c)).join(''); return t.length > n ? t.slice(0, n) + '…' : t; };
+const line = (f, n) => `${n}. [${flat(f.status, 20)}${f.severity ? ', ' + flat(f.severity, 10) : ''}] ${flat(f.file, 200)} ${flat(f.where || '', 200)}: ${flat(f.claim, 600)}`;
 
 // Notes that say the same thing every turn are shown once per session.
 const ONCE = /^(Hard change and no machine check|Config: )/;
