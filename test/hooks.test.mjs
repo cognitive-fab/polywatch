@@ -35,8 +35,11 @@ test('hooks: post-tool records, stop starts a background review, prompt delivers
 });
 
 test('hooks: bad input never fails the session', () => {
-  const r = spawnSync(process.execPath, [BIN, 'hook', 'stop'], { input: 'not json', encoding: 'utf8', env: ENV });
+  // Run from a scratch folder: the error it logs belongs there, not in this repository's .polywatch/.
+  const cwd = mkdtempSync(join(tmpdir(), 'pwh-'));
+  const r = spawnSync(process.execPath, [BIN, 'hook', 'stop'], { input: 'not json', encoding: 'utf8', env: ENV, cwd });
   assert.equal(r.status, 0);
+  assert.ok(existsSync(join(cwd, '.polywatch', 'errors.jsonl')), 'the error was logged somewhere else');
 });
 
 test('hooks: parallel edits are all recorded', async () => {
