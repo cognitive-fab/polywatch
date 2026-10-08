@@ -1,6 +1,6 @@
 # polywatch privacy policy
 
-Effective 2026-09-28. Applies to the polywatch plugin for Claude Code, published by Jean-Jacques Dubray at [github.com/cognitive-fab/polywatch](https://github.com/cognitive-fab/polywatch).
+Effective 2026-10-07. Applies to the polywatch plugin for Claude Code, published by Jean-Jacques Dubray at [github.com/cognitive-fab/polywatch](https://github.com/cognitive-fab/polywatch).
 
 ## In short
 
@@ -14,7 +14,7 @@ After each Claude Code turn that changes code, polywatch sends:
 
 | What | Limit | Sent to |
 |---|---|---|
-| The source files changed in the turn, with their paths inside the project | 60,000 characters per file; at most 20 files found by change detection | The **reviewer**: DeepSeek by default (`api.deepseek.com`) |
+| The source files changed in the turn, with their paths inside the project | 60,000 characters per file; at most 20 files found by change detection | The **reviewer**: Anthropic by default (Claude Haiku 5.5, `api.anthropic.com`), or the provider you choose (for example DeepSeek, `api.deepseek.com`). With `compare` set in your own settings, a second reviewer receives the same |
 | Your most recent request to Claude Code | 4,000 characters | The reviewer, and the confirming model |
 | Each serious claim the reviewer makes, with an excerpt of the code it cites | 40,000 characters per claim | The **confirming model**: Anthropic, either through your local Claude Code (`claude -p`, on your Claude plan) or the Anthropic API |
 
@@ -26,7 +26,7 @@ polywatch does not send:
 - your API keys, except each key to its own provider (below);
 - test output, the dashboard, or anything it stores locally.
 
-DeepSeek is a third-party model provider based in China. What DeepSeek and Anthropic do with the data they receive is governed by your agreement with them and their privacy policies, not by polywatch.
+If you choose DeepSeek for a reviewer: DeepSeek is a third-party model provider based in China. What DeepSeek and Anthropic do with the data they receive is governed by your agreement with them and their privacy policies, not by polywatch.
 
 ## Your API keys
 

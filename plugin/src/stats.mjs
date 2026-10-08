@@ -22,6 +22,36 @@ function strayStateDirs(root, d = root, depth = 0, out = []) {
   return out;
 }
 
+// Two reviewers side by side, over the turns both reviewed ("compare" in the settings). A claim both
+// raised counts for each; "only" counts confirmed claims the other reviewer did not raise.
+export function compareReviewers(results, outcomes) {
+  const paired = results.filter(r => r.compare && !r.skipped);
+  if (!paired.length) return null;
+  const verdicts = new Map(outcomes.map(o => [`${o.id}#${o.index}`, o.verdict]));
+  const side = (role, info) => {
+    const ok = paired.filter(r => !info(r)?.error);
+    const adj = paired.flatMap(r => (r.adjudications || []).filter(a => a.claim?.found?.includes(role)));
+    const rated = paired.flatMap(r => (r.findings || []).map((f, i) => ({ f, v: verdicts.get(`${r.id}#${i + 1}`) })).filter(x => x.v && x.f.found?.includes(role)));
+    return {
+      model: info(paired[paired.length - 1])?.model || paired.map(r => info(r)?.model).find(Boolean) || '?',
+      errors: paired.length - ok.length,
+      unparsed: count(ok, r => info(r).unparsed !== undefined),
+      usd: paired.reduce((s, r) => s + (info(r)?.usd || 0), 0),
+      seconds: median(ok.map(r => info(r).seconds || 0)),
+      raised: ok.reduce((s, r) => s + (info(r).issues?.length || 0), 0),
+      checked: adj.length, confirmed: count(adj, a => a.holds === 'yes'), refuted: count(adj, a => a.holds === 'no'),
+      only: count(adj, a => a.holds === 'yes' && a.claim.found.length === 1),
+      shown: paired.reduce((s, r) => s + (r.shown || []).filter(f => f.found?.includes(role)).length, 0),
+      real: count(rated, x => x.v === 'real'), false: count(rated, x => x.v !== 'real'),
+    };
+  };
+  const both = paired.flatMap(r => (r.adjudications || []).filter(a => a.claim?.found?.length === 2));
+  return { turns: paired.length, reviewer: side('reviewer', r => r.reviewer), compare: side('compare', r => r.compare),
+    // Refuted claims leave no finding, so claims both raised are the findings plus the refuted checks.
+    both: { raised: paired.reduce((s, r) => s + (r.findings || []).filter(f => f.found?.length === 2).length, 0) + count(both, a => a.holds === 'no'), confirmed: count(both, a => a.holds === 'yes') } };
+}
+const count = (xs, f) => xs.filter(f).length;
+
 // strays: walk the project for old .polywatch folders (slow on big trees; the dashboard skips it).
 export function stats(root, now = Date.now(), { strays = true } = {}) {
   const dir = join(root, '.polywatch');
@@ -29,7 +59,6 @@ export function stats(root, now = Date.now(), { strays = true } = {}) {
   const ledger = readJsonl(join(dir, 'ledger.jsonl'));
   const reviewed = results.filter(r => !r.skipped && !r.reviewer?.error);
   const adj = reviewed.flatMap(r => r.adjudications || []);
-  const count = (xs, f) => xs.filter(f).length;
   const outcomes = [...new Map(ledger.filter(l => l.kind === 'finding-outcome').map(o => [`${o.id}#${o.index}`, o])).values()];   // latest per finding
   const old = (p) => { try { return now - statSync(p).mtimeMs > HOUR; } catch { return false; } };
   const turnsDir = join(dir, 'turns');
@@ -57,6 +86,7 @@ export function stats(root, now = Date.now(), { strays = true } = {}) {
     undelivered: count(results, r => !r.delivered && r.session !== 'manual'),
     outcomes: { real: count(outcomes, o => o.verdict === 'real'), false: count(outcomes, o => o.verdict !== 'real'), byClaude: count(outcomes, o => String(o.by || '').startsWith('claude')), byUser: count(outcomes, o => !String(o.by || '').startsWith('claude')) },
     precision: calibration(dir),
+    compare: compareReviewers(results, outcomes),
     today: { usd: spentToday() },
     problems: {
       strayStateDirs: strays ? strayStateDirs(root) : [],
@@ -84,6 +114,10 @@ export function renderStats(s) {
     `outcomes       ${s.outcomes.real} real, ${s.outcomes.false} false alarm(s) recorded (${s.outcomes.byUser} by you, ${s.outcomes.byClaude} by Claude)`,
     `precision      ${Object.entries(s.precision).filter(([, v]) => v.outcomes).map(([b, v]) => `${b} ${Math.round(v.precision * 100)}% (${v.outcomes})`).join(', ') || 'priors only: record outcomes with polywatch outcome <id> <n> real|false'}`,
   ];
+  if (s.compare) {
+    const k = s.compare, row = (x) => `  ${x.model.padEnd(18)} raised ${x.raised}, confirmed ${x.confirmed} of ${x.checked} checked (${x.only} only it raised), refuted ${x.refuted}, shown ${x.shown}, rated ${x.real} real / ${x.false} false, ${$(x.usd)}, median ${Math.round(x.seconds)} s${x.errors ? `, ${x.errors} errors` : ''}${x.unparsed ? `, ${x.unparsed} unparsed` : ''}`;
+    lines.push(`reviewers      side by side over ${k.turns} turn(s) both reviewed`, row(k.reviewer), row(k.compare), `  both raised        ${k.both.raised} claim(s); ${k.both.confirmed} confirmed`);
+  }
   const warn = [];
   if (p.strayStateDirs.length) warn.push(`state in subfolders (from polywatch before 0.2.1): ${p.strayStateDirs.join(', ')}`);
   if (p.strandedTurnFiles) warn.push(`${p.strandedTurnFiles} edit record(s) older than an hour were never reviewed`);

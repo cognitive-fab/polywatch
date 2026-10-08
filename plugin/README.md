@@ -9,7 +9,7 @@ This folder is what the plugin installs. Documentation, configuration, the bench
 The full privacy policy is in [PRIVACY.md](PRIVACY.md).
 
 
-- The changed code of each turn goes to the reviewer's API: DeepSeek by default (`api.deepseek.com`), with your DeepSeek key.
+- The changed code of each turn goes to the reviewer's API: Anthropic by default (Claude Haiku 5.5), with your Anthropic key; DeepSeek (`api.deepseek.com`) with your DeepSeek key if you choose it, as reviewer or as a second `compare` reviewer.
 - Single claims with the code they cite go to the confirming model: through `claude -p` on your Claude plan (`"provider": "claude-code"`), or the Anthropic API with your Anthropic key.
 - Each key is sent only to its own vendor. Keys are set in the plugin's settings (stored in your system credential store) or named in `~/.polywatch.json`.
 - Files matching `exclude` (`.env`, `*.pem`, `*secret*`, `*credential*`, …) are never sent.

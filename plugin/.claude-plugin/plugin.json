@@ -1,8 +1,8 @@
 {
   "name": "polywatch",
   "displayName": "Polywatch",
-  "version": "0.6.2",
-  "description": "A background bug hunter for code Claude writes. After each turn, a cheap reviewer from another model family (DeepSeek V4.1-Flash by default) reads the change, Claude Opus 5.5 checks the most serious claims against the code, and on your next prompt you see at most two ranked findings. Confirmed defects go back to Claude to fix. Your own real/false-alarm outcomes set the ranking weights.",
+  "version": "0.7.0",
+  "description": "A background bug hunter for code Claude writes. After each turn, a cheap reviewer (Claude Haiku 5.5 by default, DeepSeek V4.1-Flash as an option, or both side by side) reads the change, Claude Opus 5.5 checks the most serious claims against the code, and on your next prompt you see at most two ranked findings. Confirmed defects go back to Claude to fix. Your own real/false-alarm outcomes set the ranking weights.",
   "author": {
     "name": "jdubray",
     "url": "https://github.com/jdubray"
@@ -21,14 +21,14 @@
   "userConfig": {
     "deepseek_api_key": {
       "type": "string",
-      "title": "DeepSeek API key",
-      "description": "Used by the reviewer (DeepSeek by default) to list candidate defects after each turn. Stored in your system credential store. Leave empty to use the environment variable named in ~/.polywatch.json.",
+      "title": "DeepSeek API key (optional)",
+      "description": "Only needed if a reviewer runs on DeepSeek (\"provider\": \"deepseek\"), as the reviewer or as the compare reviewer. Stored in your system credential store. Leave empty to use the environment variable named in ~/.polywatch.json.",
       "sensitive": true
     },
     "anthropic_api_key": {
       "type": "string",
-      "title": "Anthropic API key (optional)",
-      "description": "Only needed if the reviewer or the confirming model uses the Anthropic API. Not needed with \"provider\": \"claude-code\", which runs on your Claude plan through claude -p.",
+      "title": "Anthropic API key",
+      "description": "Used by the reviewer (Claude Haiku 5.5 by default) and the confirming model. Not needed for a role set to \"provider\": \"claude-code\", which runs on your Claude plan through claude -p.",
       "sensitive": true
     }
   }

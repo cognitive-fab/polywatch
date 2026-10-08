@@ -103,8 +103,35 @@ function callRole(cfg, role, prompt, maxTokens) {
   const apiKey = process.env[optionVar] || process.env[r.apiKeyEnv];
   if (!apiKey) return Promise.resolve({ error: `no ${r.provider} API key: set it in the plugin's settings (/plugin, polywatch, Configure) or in ${r.apiKeyEnv}` });
   if (r.provider === 'deepseek') return callDeepseek({ model: r.model, baseUrl: r.baseUrl, apiKey, prompt, price: r.price, ...(maxTokens && { maxTokens }) });
-  if (r.provider === 'anthropic') return callAnthropic({ model: r.model, apiKey, prompt, price: r.price });
+  if (r.provider === 'anthropic') return callAnthropic({ model: r.model, apiKey, prompt, price: r.price, effort: r.effort, ...(maxTokens && { maxTokens }) });
   return Promise.resolve({ error: `unknown ${role} provider ${r.provider}` });
+}
+
+// One reviewer's answer for the turn, with one retry on an empty or unparseable answer, which happens
+// occasionally with reasoning models.
+async function reviewWith(call, prompt, spent) {
+  let rv = await call(prompt).catch(e => ({ error: String(e.message || e) }));
+  spent(rv);
+  let verdict = rv.error ? null : parseJson(rv.text), retried = false;
+  if (!rv.error && !verdict) {
+    rv = await call(prompt).catch(e => ({ error: String(e.message || e) }));
+    spent(rv);
+    verdict = rv.error ? null : parseJson(rv.text);
+    retried = true;
+  }
+  return { rv, verdict, retried };
+}
+const summary = (model, { rv, verdict }) => rv.error ? { error: rv.error } : { model, seconds: rv.seconds, usd: rv.usd, finish: rv.finish, ...(verdict || { unparsed: String(rv.text).slice(0, 300) }) };
+const issuesOf = (verdict) => (Array.isArray(verdict?.issues) ? verdict.issues : []).filter(i => i && typeof i.claim === 'string');
+
+// Whether two reviewers' claims point at the same place: same file, and line numbers within 3 of each
+// other (or the same "where" text when neither gives a line).
+export function samePlace(a, b) {
+  if (norm(a.file) !== norm(b.file)) return false;
+  const line = (w) => +(String(w || '').match(/\d+/)?.[0] ?? NaN);
+  const la = line(a.where), lb = line(b.where);
+  if (!Number.isNaN(la) && !Number.isNaN(lb)) return Math.abs(la - lb) <= 3;
+  return String(a.where || '').trim().toLowerCase() === String(b.where || '').trim().toLowerCase();
 }
 
 export async function runJob(jobPath, deps = {}) {
@@ -115,6 +142,7 @@ export async function runJob(jobPath, deps = {}) {
   const dash = () => { if (!job.stateDir) refreshDashboard(job.cwd, cfg); };
   dash();
   const review = deps.review || ((p) => callRole(cfg, 'reviewer', p));
+  const compare = cfg.compare ? (deps.compare || ((p) => callRole(cfg, 'compare', p))) : null;
   const adjudicate = deps.adjudicate || ((p) => callRole(cfg, 'adjudicator', p, 64000));
   const result = { id: job.id, session: job.session, createdAt: new Date().toISOString(), cost: 0, money: 0, notes: cfg.warnings.map(w => `Config: ${w}`) };
   const unpriced = new Set();
@@ -127,7 +155,7 @@ export async function runJob(jobPath, deps = {}) {
     if (call.unpriced) unpriced.add(call.unpriced);
   };
   const dayLeft = () => cfg.budgetUsdPerDay - spentToday();
-  const paid = cfg.reviewer.provider !== 'claude-code' || cfg.adjudicator.provider !== 'claude-code';
+  const paid = [cfg.reviewer, cfg.adjudicator, cfg.compare].some(r => r && r.provider !== 'claude-code');
 
   const units = buildUnits(job, cfg);
   const f = features(units);
@@ -144,23 +172,24 @@ export async function runJob(jobPath, deps = {}) {
     return dash(), finish(dir, jobPath, result);
   }
 
-  // Step 1: cheap reviewer from another model family lists candidate defects.
+  // Step 1: cheap reviewer lists candidate defects. With "compare" set, a second reviewer reads the
+  // same prompt at the same time; its claims join the pool, tagged, so the two can be measured side by side.
   const prompt = reviewPrompt({ task: job.task, units });
-  let rv = await review(prompt).catch(e => ({ error: String(e.message || e) }));
-  spent(rv);
-  let verdict = rv.error ? null : parseJson(rv.text);
-  if (!rv.error && !verdict) {
-    // An empty or unparseable answer happens occasionally with reasoning models: retry once.
-    rv = await review(prompt).catch(e => ({ error: String(e.message || e) }));
-    spent(rv);
-    verdict = rv.error ? null : parseJson(rv.text);
-    result.reviewerRetried = true;
-  }
-  result.reviewer = rv.error ? { error: rv.error } : { model: cfg.reviewer.model, seconds: rv.seconds, usd: rv.usd, finish: rv.finish, ...(verdict || { unparsed: String(rv.text).slice(0, 300) }) };
-  if (!rv.error && !verdict) result.notes.push(`Reviewer returned no answer (finish reason: ${rv.finish || 'unknown'}).`);
+  const [main, other] = await Promise.all([reviewWith(review, prompt, spent), compare && reviewWith(compare, prompt, spent)]);
+  if (main.retried) result.reviewerRetried = true;
+  result.reviewer = summary(cfg.reviewer.model, main);
+  if (!main.rv.error && !main.verdict) result.notes.push(`Reviewer returned no answer (finish reason: ${main.rv.finish || 'unknown'}).`);
   // The reviewer's ACCEPT/REJECT verdict is kept for the record but not used: on real project
   // history it rejected commits that were later fixed and commits that were not at the same rate.
-  const candidates = (Array.isArray(verdict?.issues) ? verdict.issues : []).filter(i => i && typeof i.claim === 'string');
+  let candidates = issuesOf(main.verdict);
+  if (other) {
+    result.compare = { ...summary(cfg.compare.model, other), ...(other.retried && { retried: true }) };
+    candidates = candidates.map(c => ({ ...c, found: ['reviewer'] }));
+    for (const c of issuesOf(other.verdict)) {
+      const same = candidates.find(x => !x.found.includes('compare') && samePlace(x, c));
+      if (same) same.found.push('compare'); else candidates.push({ ...c, found: ['compare'] });
+    }
+  }
 
   // Step 2: machine check for hard changes, when the project has one.
   if (r.tier === 'HARD' && cfg.testCommand) {
@@ -175,7 +204,15 @@ export async function runJob(jobPath, deps = {}) {
     .filter(i => cfg.confirm === 'all' || (cfg.confirm === 'high' ? i.severity === 'high' : cfg.confirm === 'top' ? i.severity !== 'low' : false))
     .sort((a, b) => (sevRank[a.severity] ?? 1) - (sevRank[b.severity] ?? 1));
   result.adjudications = [];
-  for (const claim of eligible.slice(0, cfg.adjudicator.maxClaims)) {
+  // With two reviewers, each one's most serious claims are checked, alternating, so a budget cut hits both alike.
+  const toCheck = !other ? eligible.slice(0, cfg.adjudicator.maxClaims) : (() => {
+    const mine = eligible.filter(c => c.found.includes('reviewer')).slice(0, cfg.adjudicator.maxClaims);
+    const theirs = eligible.filter(c => c.found.includes('compare')).slice(0, cfg.adjudicator.maxClaims);
+    const out = [];
+    for (let i = 0; i < cfg.adjudicator.maxClaims; i++) for (const c of [mine[i], theirs[i]]) if (c && !out.includes(c)) out.push(c);
+    return out;
+  })();
+  for (const claim of toCheck) {
     if (result.cost >= cfg.budgetUsdPerTurn) { result.notes.push('Per-turn budget reached; remaining claims were not checked.'); break; }
     if (cfg.adjudicator.provider !== 'claude-code' && dayLeft() <= 0) { result.notes.push(`Daily budget of $${cfg.budgetUsdPerDay.toFixed(2)} reached; remaining claims were not checked.`); break; }
     const inc = cfg.adjudicator.includeRequest ?? 'short';          // 'short' (requests up to 20,000 chars) | 'always' | 'never'
@@ -199,7 +236,7 @@ export async function runJob(jobPath, deps = {}) {
   for (const c of candidates) {
     const a = byClaim.get(c);
     if (a?.holds === 'no') continue;
-    findings.push({ file: c.file, where: c.where, severity: c.severity, claim: c.claim, status: a?.holds === 'yes' ? 'confirmed' : 'unconfirmed', evidence: a?.holds === 'yes' ? a.evidence : undefined });
+    findings.push({ file: c.file, where: c.where, severity: c.severity, claim: c.claim, status: a?.holds === 'yes' ? 'confirmed' : 'unconfirmed', evidence: a?.holds === 'yes' ? a.evidence : undefined, found: c.found });
   }
   result.refuted = result.adjudications.filter(a => a.holds === 'no').length;
   result.findings = rank(findings, calibration(dir));

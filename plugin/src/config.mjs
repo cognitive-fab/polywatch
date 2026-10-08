@@ -7,7 +7,8 @@ import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
 export const DEFAULTS = {
-  reviewer: { provider: 'deepseek', model: 'deepseek-flash' },
+  reviewer: { provider: 'anthropic', model: 'claude-haiku-5-5' },
+  compare: null,                // a second reviewer run on the same turns, e.g. { "provider": "deepseek", "model": "deepseek-flash" }; ~/.polywatch.json or a trusted project only
   adjudicator: { provider: 'anthropic', model: 'claude-opus-5-5', maxClaims: 2, includeRequest: 'short' },
   testCommand: null,            // e.g. "npm test"; run for HARD changes when set
   testTimeoutSec: 300,
@@ -33,7 +34,7 @@ export const PROVIDERS = {
 };
 
 // Keys a project file may set only when the user trusts the project.
-const SENSITIVE = [['testCommand'], ['reviewer', 'baseUrl'], ['reviewer', 'apiKeyEnv'], ['reviewer', 'price'], ['adjudicator', 'baseUrl'], ['adjudicator', 'apiKeyEnv'], ['adjudicator', 'price']];
+const SENSITIVE = [['testCommand'], ['compare'], ['reviewer', 'baseUrl'], ['reviewer', 'apiKeyEnv'], ['reviewer', 'price'], ['adjudicator', 'baseUrl'], ['adjudicator', 'apiKeyEnv'], ['adjudicator', 'price']];
 
 // Arrays replace, except `exclude`, which only ever adds patterns to the defaults.
 function merge(a, b) {
@@ -83,10 +84,15 @@ export function loadConfig(cwd) {
   const cfg = merge(base, project);
   // Per-provider key variables and endpoints; the user file's "providers" overrides the built-in ones.
   const providers = merge(PROVIDERS, user.providers && typeof user.providers === 'object' ? user.providers : {});
-  for (const role of ['reviewer', 'adjudicator']) {
-    const r = cfg[role], p = providers[r.provider] || {};
+  if (cfg.compare && (typeof cfg.compare !== 'object' || !cfg.compare.provider || !cfg.compare.model)) {
+    warnings.push('compare must be { "provider": ..., "model": ... }; ignored.');
+    cfg.compare = null;
+  }
+  for (const role of ['reviewer', 'adjudicator', 'compare']) {
+    const r = cfg[role]; if (!r) continue;
+    const p = providers[r.provider] || {};
     // An untrusted project that switches provider must not inherit an endpoint or key set for another one.
-    if (!trusted && r.provider !== base[role].provider) { delete r.baseUrl; delete r.apiKeyEnv; delete r.price; }
+    if (!trusted && r.provider !== base[role]?.provider) { delete r.baseUrl; delete r.apiKeyEnv; delete r.price; }
     r.baseUrl ??= p.baseUrl;
     r.apiKeyEnv ??= p.apiKeyEnv;
     if (r.price != null && !(Array.isArray(r.price) && r.price.length === 2 && r.price.every(x => typeof x === 'number' && x >= 0))) {
