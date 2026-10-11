@@ -137,10 +137,21 @@ ul.caveats { margin: 0; padding-left: 1.2rem; font-family: var(--sans); font-siz
     </section>
 
     <section>
+      <h2>Does the code have more defects than the baseline showed?</h2>
+      <p>The baseline is DeepSeek, the reviewer we used before Haiku. On these 28 turns of Opus 5.5 code it had 34 confirmed claims. Haiku raised 17 confirmed claims DeepSeek did not, and 2 were raised by both, so together they confirmed 51. A third of the confirmed claims were invisible to the baseline, which is 50% more than DeepSeek alone reported.</p>
+      <div class="cards" style="margin-top:14px">
+        <div class="card"><b class="n">34 &rarr; 51</b><span>Confirmed claims over 28 turns: DeepSeek alone, then both reviewers combined.</span></div>
+        <div class="card"><b class="n">Probably a floor</b><span>Half of Haiku's claims were low severity and never checked, so its share is understated.</span></div>
+        <div class="card"><b class="n">Could be a bit high</b><span>Strict location matching may count one bug twice when the reviewers describe it differently. The duplicate check would settle this.</span></div>
+      </div>
+      <div class="note"><span class="c">// this says the baseline undercounted. It does not say Opus 5.5 writes worse code than other models: that needs a ground-truth replay (commits labelled by later fixes) and a second author to compare with.</span></div>
+    </section>
+
+    <section>
       <h2>Do we still need DeepSeek?</h2>
       <p>The overlap figure is weaker than it looks. Two claims count as the same only when they name the same file and lines within 3 of each other, or the identical location text. The reviewers often cite a function name in one case and a description in the other, so two reports of one bug would not match. The 4 shared claims out of 83 is a lower bound, not a measurement. A looser word-matching check found 25 more candidates, but the ones I read were different issues in the same file, so it is too noisy to trust.</p>
       <div class="cards" style="margin-top:14px">
-        <div class="card"><b class="n">Does Opus find more bugs than expected?</b><span>No. Opus does not raise claims, it only rules on the ones the reviewers raise. The low overlap says the reviewers mostly cite different places, which suggests each one samples part of a larger set of real defects. The data does not prove that yet.</span></div>
+        <div class="card"><b class="n">Author and judge are one model</b><span>Opus 5.5 wrote all the code and also rules on every claim. If it has blind spots, it may confirm too little of its own work. DeepSeek is the one reviewer from outside the Claude family, which is a reason to keep it.</span></div>
         <div class="card"><b class="n">"Confirmed" is a low bar</b><span>It means the claim holds against the code, not that the bug matters. Many confirmed claims are weak tests or comments that disagree with the code.</span></div>
         <div class="card"><b class="n">Keep DeepSeek for now</b><span>About 32 of its confirmed claims were raised only by DeepSeek, and 23 of its findings were rated real. Dropping it now would drop that coverage on a guess. A middle option is to run it only on HARD-tier turns.</span></div>
       </div>
