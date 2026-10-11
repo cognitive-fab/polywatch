@@ -88,6 +88,13 @@ export function loadConfig(cwd) {
     warnings.push('compare must be { "provider": ..., "model": ... }; ignored.');
     cfg.compare = null;
   }
+  if (cfg.compare && cfg.compare.sample != null && cfg.compare.sample !== 'even') {
+    warnings.push('compare.sample must be "even"; ignored.');
+    delete cfg.compare.sample;
+  }
+  for (const role of ['reviewer', 'adjudicator']) {
+    if (!cfg[role] || typeof cfg[role] !== 'object' || Array.isArray(cfg[role])) { warnings.push(`${role} must be an object; the default is used.`); cfg[role] = structuredClone(DEFAULTS[role]); }
+  }
   for (const role of ['reviewer', 'adjudicator', 'compare']) {
     const r = cfg[role]; if (!r) continue;
     const p = providers[r.provider] || {};

@@ -1,7 +1,8 @@
 // Background review of one turn: route, list candidate defects, confirm the serious ones, rank, log.
-import { readFileSync, existsSync, unlinkSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, unlinkSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { join, relative, sep, isAbsolute, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { loadConfig, stateDir } from './config.mjs';
 import { readJson, writeJson, appendJsonl, isExcluded, safeId } from './util.mjs';
 import { features, route } from './router.mjs';
@@ -18,8 +19,10 @@ export function buildUnits(job, cfg) {
   for (const e of job.edits) {
     if (isExcluded(job.cwd, e.file, cfg.exclude)) continue;
     // Files outside the project (Claude's scratch scripts, temp files) are not sent unless asked for.
-    const rel = relative(job.cwd, e.file);
-    if (!cfg.reviewOutsideProject && (rel.startsWith('..') || isAbsolute(rel))) continue;
+    // Judged on real paths too, so a link inside the project to a file outside it is not followed.
+    const outside = (p, root) => { const rel = relative(root, p); return rel.startsWith('..') || isAbsolute(rel); };
+    const real = (p) => { try { return realpathSync(p); } catch { return p; } };
+    if (!cfg.reviewOutsideProject && (outside(e.file, job.cwd) || outside(real(e.file), real(job.cwd)))) continue;
     if (!byFile.has(e.file)) byFile.set(e.file, []);
     byFile.get(e.file).push(e);
   }
@@ -79,7 +82,8 @@ export function sameFile(unit, claimFile) {
 }
 
 export function excerptFor(units, claim, budget = 40000) {
-  const primary = units.find(x => sameFile(x, claim.file)) || units[0];
+  // An exact path wins over a suffix match, so src/util.mjs is not read as ./util.mjs.
+  const primary = units.find(x => norm(x.rel) === norm(claim.file)) || units.find(x => sameFile(x, claim.file)) || units[0];
   if (!primary) return '';
   const anchors = anchorsOf(claim);
   const parts = [];
@@ -205,9 +209,14 @@ export async function runJob(jobPath, deps = {}) {
     .sort((a, b) => (sevRank[a.severity] ?? 1) - (sevRank[b.severity] ?? 1));
   result.adjudications = [];
   // With two reviewers, each one's most serious claims are checked, alternating, so a budget cut hits both alike.
+  // With compare.sample "even" the claims are drawn without regard to severity (in a fixed pseudo-random order),
+  // because reviewers label severity differently and the severity filter would check unequal kinds of claim.
   const toCheck = !other ? eligible.slice(0, cfg.adjudicator.maxClaims) : (() => {
-    const mine = eligible.filter(c => c.found.includes('reviewer')).slice(0, cfg.adjudicator.maxClaims);
-    const theirs = eligible.filter(c => c.found.includes('compare')).slice(0, cfg.adjudicator.maxClaims);
+    const even = cfg.compare.sample === 'even' && cfg.confirm !== 'none';
+    const key = (c) => createHash('sha1').update([result.id, c.file, c.where, c.claim].join('|')).digest('hex');
+    const pool = even ? [...candidates].sort((a, b) => key(a) < key(b) ? -1 : 1) : eligible;
+    const mine = pool.filter(c => c.found.includes('reviewer')).slice(0, cfg.adjudicator.maxClaims);
+    const theirs = pool.filter(c => c.found.includes('compare')).slice(0, cfg.adjudicator.maxClaims);
     const out = [];
     for (let i = 0; i < cfg.adjudicator.maxClaims; i++) for (const c of [mine[i], theirs[i]]) if (c && !out.includes(c)) out.push(c);
     return out;

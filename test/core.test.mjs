@@ -536,6 +536,24 @@ test('compare: a second reviewer from the user file joins the pool, both get cla
   } finally { process.env.POLYWATCH_USER_CONFIG = prev; }
 });
 
+test('compare: sample "even" checks claims of any severity, the same number from each reviewer', async () => {
+  const { cwd, jobPath } = fixture(RAFT);
+  const userCfg = join(mkdtempSync(join(tmpdir(), 'pwu-')), 'user.json');
+  writeFileSync(userCfg, JSON.stringify({ compare: { provider: 'deepseek', model: 'deepseek-flash', sample: 'even' }, adjudicator: { maxClaims: 2 } }));
+  const prev = process.env.POLYWATCH_USER_CONFIG;
+  process.env.POLYWATCH_USER_CONFIG = userCfg;
+  try {
+    const mk = (tag, n) => Array.from({ length: n }, (_, i) => ({ file: 'raft.js', where: `line ${i + 1} ${tag}`, severity: 'low', claim: `${tag} claim ${i}` }));
+    const r = await runJob(jobPath, {
+      review: async () => ({ text: JSON.stringify({ verdict: 'REJECT', issues: mk('a', 5) }), usd: 0 }),
+      compare: async () => ({ text: JSON.stringify({ verdict: 'REJECT', issues: mk('b', 5) }), usd: 0 }),
+      adjudicate: async () => ({ text: '{"holds":"no","evidence":"e"}', usd: 0 }),
+    });
+    const by = (role) => r.adjudications.filter(a => a.claim.found.includes(role)).length;
+    assert.deepEqual([by('reviewer'), by('compare')], [2, 2], 'low-severity claims are checked, two per reviewer');
+  } finally { if (prev === undefined) delete process.env.POLYWATCH_USER_CONFIG; else process.env.POLYWATCH_USER_CONFIG = prev; }
+});
+
 test('anthropic: the streamed answer is assembled, thinking is skipped, usage is priced', async () => {
   const { callAnthropic } = await import('../plugin/src/reviewers/anthropic.mjs');
   const events = [
@@ -555,4 +573,32 @@ test('anthropic: the streamed answer is assembled, thinking is skipped, usage is
     assert.deepEqual([sent.stream, sent.output_config], [true, { effort: 'low' }]);
     assert.equal(r.usd, (1000 * 0.1 + 2000 * 0.5) / 1e6);
   } finally { globalThis.fetch = saved; }
+});
+
+test('config: a reviewer that is not an object falls back to the default with a warning', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'pwc-'));
+  writeFileSync(join(cwd, '.polywatch.json'), JSON.stringify({ reviewer: 'x' }));
+  const cfg = loadConfig(cwd);
+  assert.equal(cfg.reviewer.model, 'claude-haiku-5-5');
+  assert.match(cfg.warnings.join(' '), /reviewer must be an object/);
+});
+
+test('excerpt: an exact path wins over a file with the same name elsewhere', () => {
+  const units = [{ file: '/p/util.mjs', rel: 'util.mjs', current: 'root one' }, { file: '/p/src/util.mjs', rel: 'src/util.mjs', current: 'src one' }];
+  assert.match(excerptFor(units, { file: 'src/util.mjs', where: 'x', claim: 'y' }), /src one/);
+});
+
+test('worker: a link inside the project to a file outside it is not sent', async (t) => {
+  const { symlinkSync } = await import('node:fs');
+  const { cwd, jobPath } = fixture(RAFT);
+  const outsideFile = join(mkdtempSync(join(tmpdir(), 'pwo-')), 'secret.js');
+  writeFileSync(outsideFile, 'const leaked = 1;\n'.repeat(5));
+  const link = join(cwd, 'link.js');
+  try { symlinkSync(outsideFile, link); } catch { t.skip('cannot create symlinks here'); return; }
+  const job = JSON.parse(readFileSync(jobPath, 'utf8'));
+  job.edits = [{ file: link, tool: 'Write', before: null, after: 'x' }];
+  writeJson(jobPath, job);
+  let sent = '';
+  await runJob(jobPath, { review: async (p) => { sent = p; return { text: '{"issues":[]}', usd: 0 }; } });
+  assert.ok(!sent.includes('leaked'));
 });
