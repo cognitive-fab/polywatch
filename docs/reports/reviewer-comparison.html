@@ -111,6 +111,7 @@ ul.caveats { margin: 0; padding-left: 1.2rem; font-family: var(--sans); font-siz
             <tr><td>Claims Opus checked</td><td>35</td><td>63</td></tr>
             <tr><td>Confirmed</td><td>19 (54%)</td><td>34 (54%)</td></tr>
             <tr><td>Refuted</td><td>11 (31%)</td><td>23 (37%)</td></tr>
+            <tr><td>Uncertain</td><td>5 (14%)</td><td>6 (10%)</td></tr>
             <tr><td>Confirmed, raised only by this reviewer</td><td>17</td><td>32</td></tr>
             <tr><td>Rated real / false afterwards</td><td>11 / 4</td><td>23 / 10</td></tr>
             <tr><td>Reviewer cost</td><td class="win">$0.16</td><td>$0.60</td></tr>
@@ -122,7 +123,7 @@ ul.caveats { margin: 0; padding-left: 1.2rem; font-family: var(--sans); font-siz
 
     <section>
       <h2>Why the confirmed counts are not comparable yet</h2>
-      <p>Opus checks the same number of claims per reviewer, but only those marked high or medium severity. The two models use severity very differently, so DeepSeek put far more claims in front of Opus. Its 34 confirmed against Haiku's 19 mostly reflects that, not more bugs found.</p>
+      <p>Opus checks at most the same number of claims per reviewer in each turn, and only those marked high or medium severity. The two models use severity very differently, so DeepSeek put far more claims in front of Opus. Its 34 confirmed against Haiku's 19 mostly reflects that, not more bugs found.</p>
       <div class="legend">
         <span><i class="h-high"></i>high</span><span><i class="h-med"></i>medium</span><span><i class="h-low"></i>low (never checked)</span>
       </div>
