@@ -34,12 +34,13 @@ export const PROVIDERS = {
 };
 
 // Keys a project file may set only when the user trusts the project.
-const SENSITIVE = [['testCommand'], ['compare'], ['reviewer', 'baseUrl'], ['reviewer', 'apiKeyEnv'], ['reviewer', 'price'], ['adjudicator', 'baseUrl'], ['adjudicator', 'apiKeyEnv'], ['adjudicator', 'price']];
+const SENSITIVE = [['testCommand'], ['compare'], ['reviewOutsideProject'], ['reviewer', 'baseUrl'], ['reviewer', 'apiKeyEnv'], ['reviewer', 'price'], ['adjudicator', 'baseUrl'], ['adjudicator', 'apiKeyEnv'], ['adjudicator', 'price']];
 
 // Arrays replace, except `exclude`, which only ever adds patterns to the defaults.
 function merge(a, b) {
   const out = { ...a };
   for (const [k, v] of Object.entries(b || {})) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;   // JSON.parse keeps "__proto__" as a key; assigning it would change the object's prototype
     if (k === 'exclude' && Array.isArray(v)) out[k] = [...new Set([...(a[k] || []), ...v])];
     else out[k] = v && typeof v === 'object' && !Array.isArray(v) && a[k] && typeof a[k] === 'object' ? merge(a[k], v) : v;
   }
@@ -75,6 +76,11 @@ export function loadConfig(cwd) {
       }
     }
     if (dropped.length) warnings.push(`.polywatch.json settings ignored because this project is not trusted: ${dropped.join(', ')}. Set them in ${userConfigPath()}, or add this project to "trustedProjects" there.`);
+  }
+  for (const k of ['budgetUsdPerTurn', 'budgetUsdPerDay']) {
+    // A cap that is not a non-negative number would compare as NaN or coerce to a larger number, so it is dropped.
+    if (project[k] !== undefined && !(Number.isFinite(project[k]) && project[k] >= 0)) { warnings.push(`.polywatch.json ${k} must be a non-negative number; ignored.`); delete project[k]; }
+    if (user[k] !== undefined && !(Number.isFinite(user[k]) && user[k] >= 0)) { warnings.push(`${userConfigPath()} ${k} must be a non-negative number; the default is used.`); delete user[k]; }
   }
   const base = merge(structuredClone(DEFAULTS), user);   // clone: filled in below, DEFAULTS must stay untouched
   // A cloned repository may lower the spending caps but never raise them.
