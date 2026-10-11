@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reviewer Comparison</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600&display=swap">
+<style>
+/* Layout: an editor window. Title bar with a file tab, then sections that read like commented output. Light editor palette. */
+:root {
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --bar: #eaeef2;
+  --fg: #24292f;
+  --muted: #6e7781;
+  --rule: #d0d7de;
+  --key: #cf222e;
+  --fn: #8250df;
+  --str: #0a3069;
+  --num: #0550ae;
+  --good: #1a7f37;
+  --warn: #9a6700;
+  --haiku: #0969da;
+  --deepseek: #bc4c00;
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 14px; line-height: 1.7; padding-inline: 16px; padding-block: 32px 64px; }
+.win { max-width: 860px; margin-inline: auto; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+.bar { background: var(--bar); border-bottom: 1px solid var(--rule); padding: 8px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--rule); display: block; }
+.tab { background: var(--panel); border: 1px solid var(--rule); border-bottom-color: var(--panel); border-radius: 5px 5px 0 0; padding: 2px 12px; font-size: 12px; margin-bottom: -9px; }
+.body { padding: 28px 24px 36px; display: flex; flex-direction: column; gap: 36px; }
+.c { color: var(--muted); }
+.k { color: var(--key); }
+.f { color: var(--fn); }
+.s { color: var(--str); }
+.n { color: var(--num); }
+h1 { font-size: 1.55rem; line-height: 1.3; margin: 0; font-weight: 700; text-wrap: balance; }
+h2 { font-size: 1rem; margin: 0 0 10px; font-weight: 700; }
+h2::before { content: '## '; color: var(--muted); font-weight: 400; }
+p { margin: 0; max-width: 72ch; font-family: var(--sans); font-size: 15px; line-height: 1.65; }
+.lede { margin-top: 14px; }
+.prompt { color: var(--muted); margin-bottom: 8px; }
+.prompt b { color: var(--good); font-weight: 500; }
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.card { border: 1px solid var(--rule); border-radius: 6px; padding: 14px; background: var(--bg); min-width: 0; }
+.card b { display: block; margin-bottom: 4px; }
+.card span { font-family: var(--sans); font-size: 14px; color: #424a53; line-height: 1.55; display: block; }
+.scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 8px 14px; text-align: right; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; font-family: var(--sans); }
+thead th { background: var(--bg); font-weight: 500; }
+thead th.hk { color: var(--haiku); }
+thead th.ds { color: var(--deepseek); }
+tbody tr:last-child td { border-bottom: 0; }
+td.win { color: var(--good); font-weight: 700; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; margin: 14px 0 10px; }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.bars { display: flex; flex-direction: column; gap: 12px; }
+.row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 12px; }
+.bar2 { display: flex; height: 28px; border-radius: 3px; overflow: hidden; background: var(--rule); }
+.bar2 div { display: flex; align-items: center; justify-content: center; font-size: 12px; color: #fff; min-width: 0; }
+.h-high { background: #a40e26; }
+.h-med { background: #bf8700; }
+.h-low { background: #8c959f; }
+.note { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; counter-reset: s; }
+ol.steps li { counter-increment: s; border-left: 3px solid var(--rule); padding: 2px 0 2px 14px; font-family: var(--sans); font-size: 15px; line-height: 1.6; }
+ol.steps li b { font-family: var(--mono); font-size: 14px; }
+code { font-family: var(--mono); background: var(--bar); border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+ul.caveats { margin: 0; padding-left: 1.2rem; font-family: var(--sans); font-size: 14px; color: #424a53; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 480px) { h1 { font-size: 1.25rem; } .row { grid-template-columns: 1fr; gap: 4px; } .body { padding: 22px 16px 28px; } }
+</style>
+</head>
+<body>
+
+<div class="win">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="tab">reviewer-comparison.md</div>
+  </div>
+
+  <div class="body">
+    <header>
+      <div class="prompt"><b>$</b> polywatch stats --compare <span class="c"># 28 turns, one project</span></div>
+      <h1>Haiku costs 73% less than DeepSeek, and finds about the same share of real bugs.</h1>
+      <p class="lede">Both models read the same code changes. Opus 5.5 then checked their claims against the source. Quality came out about even. Cost and speed did not.</p>
+    </header>
+
+    <section>
+      <h2>What we saw</h2>
+      <div class="cards">
+        <div class="card"><b class="n">same hit rate</b><span>Opus confirmed 54% of the claims it checked for each reviewer. Of the findings rated afterwards, 73% of Haiku's were real and 70% of DeepSeek's.</span></div>
+        <div class="card"><b class="n">73% cheaper, 6x faster</b><span>$0.16 against $0.60 for the reviewer calls, and a median of 21 s against 130 s per turn.</span></div>
+        <div class="card"><b class="n">little overlap</b><span>Only 4 claims were raised by both. Most confirmed bugs came from one reviewer alone: 17 for Haiku, 32 for DeepSeek.</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Side by side</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th></th><th class="hk">haiku-5-5</th><th class="ds">deepseek-flash</th></tr></thead>
+          <tbody>
+            <tr><td>Claims raised</td><td>83</td><td>84</td></tr>
+            <tr><td>Claims Opus checked</td><td>35</td><td>63</td></tr>
+            <tr><td>Confirmed</td><td>19 (54%)</td><td>34 (54%)</td></tr>
+            <tr><td>Refuted</td><td>11 (31%)</td><td>23 (37%)</td></tr>
+            <tr><td>Confirmed, raised only by this reviewer</td><td>17</td><td>32</td></tr>
+            <tr><td>Rated real / false afterwards</td><td>11 / 4</td><td>23 / 10</td></tr>
+            <tr><td>Reviewer cost</td><td class="win">$0.16</td><td>$0.60</td></tr>
+            <tr><td>Median time per turn</td><td class="win">21 s</td><td>130 s</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Why the confirmed counts are not comparable yet</h2>
+      <p>Opus checks the same number of claims per reviewer, but only those marked high or medium severity. The two models use severity very differently, so DeepSeek put far more claims in front of Opus. Its 34 confirmed against Haiku's 19 mostly reflects that, not more bugs found.</p>
+      <div class="legend">
+        <span><i class="h-high"></i>high</span><span><i class="h-med"></i>medium</span><span><i class="h-low"></i>low (never checked)</span>
+      </div>
+      <div class="bars" role="img" aria-label="Severity split. Haiku: 5 high, 36 medium, 42 low. DeepSeek: 28 high, 42 medium, 14 low.">
+        <div class="row"><div>haiku-5-5</div>
+          <div class="bar2"><div class="h-high" style="flex:5">5</div><div class="h-med" style="flex:36">36</div><div class="h-low" style="flex:42">42</div></div></div>
+        <div class="row"><div>deepseek-flash</div>
+          <div class="bar2"><div class="h-high" style="flex:28">28</div><div class="h-med" style="flex:42">42</div><div class="h-low" style="flex:14">14</div></div></div>
+      </div>
+      <div class="note"><span class="c">// claims by severity (83 and 84 in total). Half of Haiku's were low and never checked, so some may be real bugs we cannot see.</span></div>
+    </section>
+
+    <section>
+      <h2>Do we still need DeepSeek?</h2>
+      <p>The overlap figure is weaker than it looks. Two claims count as the same only when they name the same file and lines within 3 of each other, or the identical location text. The reviewers often cite a function name in one case and a description in the other, so two reports of one bug would not match. The 4 shared claims out of 83 is a lower bound, not a measurement. A looser word-matching check found 25 more candidates, but the ones I read were different issues in the same file, so it is too noisy to trust.</p>
+      <div class="cards" style="margin-top:14px">
+        <div class="card"><b class="n">Does Opus find more bugs than expected?</b><span>No. Opus does not raise claims, it only rules on the ones the reviewers raise. The low overlap says the reviewers mostly cite different places, which suggests each one samples part of a larger set of real defects. The data does not prove that yet.</span></div>
+        <div class="card"><b class="n">"Confirmed" is a low bar</b><span>It means the claim holds against the code, not that the bug matters. Many confirmed claims are weak tests or comments that disagree with the code.</span></div>
+        <div class="card"><b class="n">Keep DeepSeek for now</b><span>About 32 of its confirmed claims were raised only by DeepSeek, and 23 of its findings were rated real. Dropping it now would drop that coverage on a guess. A middle option is to run it only on HARD-tier turns.</span></div>
+      </div>
+      <div class="note"><span class="c">// to settle it: have Opus judge, claim by claim, whether the two reviewers describe the same defect. That gives a real overlap and a count of confirmed bugs only DeepSeek found.</span></div>
+    </section>
+
+    <section>
+      <h2>Next</h2>
+      <ol class="steps">
+        <li><b class="f">sample: "even"</b> &mdash; a new <code>compare</code> setting has Opus check the same number of claims from each reviewer in a fixed random order, whatever severity they carry. It is committed and switched on in our config.</li>
+        <li><b class="f">collect</b> &mdash; every turn from now on compares the reviewers on equal terms, so the confirmed rate per claim checked becomes a fair measure.</li>
+        <li><b class="f">widen</b> &mdash; the first results come from one project. We will run the comparison across several before choosing a default.</li>
+        <li><b class="f">dedupe</b> &mdash; run Opus as a duplicate judge over each pair of claim lists, to get the real overlap and the confirmed bugs only DeepSeek found.</li>
+        <li><b class="f">decide</b> &mdash; if the rates stay level, Haiku wins on cost, speed and keeping the code with one provider. If DeepSeek keeps finding bugs Haiku misses, we keep running both.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Limits</h2>
+      <ul class="caveats">
+        <li>One project, 28 turns. A few claims move the percentages.</li>
+        <li>All the real and false ratings came from Claude, none from a person.</li>
+        <li>Opus judges both reviewers, so a claim it misjudges counts against whichever reviewer raised it.</li>
+        <li>The 73% covers the reviewer calls only ($0.16 against $0.60). Opus's checks are billed on top and are not part of it.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+</body>
+</html>
