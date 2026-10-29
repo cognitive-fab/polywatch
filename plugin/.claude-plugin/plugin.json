@@ -1,7 +1,7 @@
 {
   "name": "polywatch",
   "displayName": "Polywatch",
-  "version": "0.7.1",
+  "version": "1.0.0",
   "description": "A background bug hunter for code Claude writes. After each turn, a cheap reviewer (Claude Haiku 5.5 by default, DeepSeek V4.1-Flash as an option, or both side by side) reads the change, Claude Opus 5.5 checks the most serious claims against the code, and on your next prompt you see at most two ranked findings. Confirmed defects go back to Claude to fix. Your own real/false-alarm outcomes set the ranking weights.",
   "author": {
     "name": "jdubray",
@@ -28,7 +28,7 @@
     "anthropic_api_key": {
       "type": "string",
       "title": "Anthropic API key",
-      "description": "Used by the reviewer (Claude Haiku 5.5 by default) and the confirming model. Not needed for a role set to \"provider\": \"claude-code\", which runs on your Claude plan through claude -p.",
+      "description": "Used by the reviewer (Claude Haiku 5.5 by default) and the confirming model. Stored in your system credential store. polywatch does not read ANTHROPIC_API_KEY (when that is set, Claude Code itself bills your API account instead of your plan). Not needed for a role set to \"provider\": \"claude-code\", which runs on your Claude plan through claude -p.",
       "sensitive": true
     }
   }

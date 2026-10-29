@@ -148,7 +148,7 @@ test('config: an untrusted project cannot choose API endpoints, key variables or
   const cfg = loadConfig(cwd);
   assert.equal(cfg.testCommand, null);
   assert.equal(cfg.reviewer.baseUrl, undefined);
-  assert.equal(cfg.reviewer.apiKeyEnv, 'ANTHROPIC_API_KEY');
+  assert.equal(cfg.reviewer.apiKeyEnv, undefined, 'the project cannot name the variable the Anthropic key is read from');
   assert.equal(cfg.adjudicator.apiKeyEnv, 'DEEPSEEK_API_KEY', 'switching provider must not send the Anthropic key to DeepSeek');
   assert.equal(cfg.maxFindings, 5);
   assert.match(cfg.warnings.join(' '), /not trusted: testCommand, reviewer\.baseUrl, reviewer\.apiKeyEnv/);
@@ -181,6 +181,26 @@ test('config: exclude adds to the default secret patterns; bad JSON is reported'
 test('state: .polywatch is git-ignored', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'pwc-'));
   assert.equal(readFileSync(join(stateDir(cwd), '.gitignore'), 'utf8').trim(), '*');
+});
+
+test('state: a .polywatch/.gitignore that came with the repository and ignores less is replaced', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'pwc-'));
+  mkdirSync(join(cwd, '.polywatch'));
+  writeFileSync(join(cwd, '.polywatch', '.gitignore'), '*\n!ledger.jsonl\n');
+  assert.equal(readFileSync(join(stateDir(cwd), '.gitignore'), 'utf8'), '*\n');
+});
+
+test('config: a project exclude that is not a list of strings cannot drop the built-in patterns', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'pwc-'));
+  for (const exclude of [null, 'x', { a: 1 }]) {
+    writeFileSync(join(cwd, '.polywatch.json'), JSON.stringify({ exclude }));
+    const cfg = loadConfig(cwd);
+    assert.ok(Array.isArray(cfg.exclude) && cfg.exclude.includes('.env') && cfg.exclude.includes('*.pem'), JSON.stringify(exclude));
+    assert.match(cfg.warnings.join(' '), /exclude must be a list of patterns/);
+  }
+  writeFileSync(join(cwd, '.polywatch.json'), JSON.stringify({ exclude: ['dist/**', 7] }));
+  const cfg = loadConfig(cwd);
+  assert.ok(cfg.exclude.includes('dist/**') && cfg.exclude.includes('.env') && !cfg.exclude.includes(7));
 });
 
 test('router: an edit that only deletes a guard counts its removed lines', () => {
@@ -421,8 +441,27 @@ test('keys: the plugin setting (CLAUDE_PLUGIN_OPTION_*) is used before the envir
   delete process.env.ANTHROPIC_API_KEY; delete process.env.CLAUDE_PLUGIN_OPTION_ANTHROPIC_API_KEY;
   try {
     const none = await runJob(jobPath);
-    assert.match(none.reviewer.error, /no anthropic API key: set it in the plugin's settings/);
+    assert.match(none.reviewer.error, /no anthropic API key: set it in the plugin's settings \(\/plugin, polywatch, Configure\)$/);
   } finally {
+    for (const [k, v] of [['CLAUDE_PLUGIN_OPTION_ANTHROPIC_API_KEY', saved.a], ['ANTHROPIC_API_KEY', saved.b]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
+test('keys: ANTHROPIC_API_KEY is not used for Anthropic; the plugin setting is', async () => {
+  const { jobPath } = fixture(RAFT, { confirm: 'none' });
+  const saved = { a: process.env.CLAUDE_PLUGIN_OPTION_ANTHROPIC_API_KEY, b: process.env.ANTHROPIC_API_KEY, fetch: globalThis.fetch };
+  const sent = [];
+  globalThis.fetch = async (_url, init) => { sent.push(init.headers['x-api-key']); return new Response('', { status: 200 }); };
+  try {
+    delete process.env.CLAUDE_PLUGIN_OPTION_ANTHROPIC_API_KEY; process.env.ANTHROPIC_API_KEY = 'sk-ant-claude-codes-own';
+    const ignored = await runJob(jobPath);
+    assert.match(ignored.reviewer.error, /no anthropic API key: .*does not read ANTHROPIC_API_KEY/);
+    assert.deepEqual(sent, []);
+    process.env.CLAUDE_PLUGIN_OPTION_ANTHROPIC_API_KEY = 'sk-ant-from-configure';
+    await runJob(fixture(RAFT, { confirm: 'none' }).jobPath);
+    assert.ok(sent.length && sent.every(k => k === 'sk-ant-from-configure'), `keys sent: ${sent}`);
+  } finally {
+    globalThis.fetch = saved.fetch;
     for (const [k, v] of [['CLAUDE_PLUGIN_OPTION_ANTHROPIC_API_KEY', saved.a], ['ANTHROPIC_API_KEY', saved.b]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
 });

@@ -104,8 +104,11 @@ function callRole(cfg, role, prompt, maxTokens) {
   // The key set in the plugin's settings (Claude Code stores it in the OS credential store and passes it
   // to hooks as CLAUDE_PLUGIN_OPTION_<KEY>), else the environment variable named in the config.
   const optionVar = `CLAUDE_PLUGIN_OPTION_${String(r.provider).toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`;
-  const apiKey = process.env[optionVar] || process.env[r.apiKeyEnv];
-  if (!apiKey) return Promise.resolve({ error: `no ${r.provider} API key: set it in the plugin's settings (/plugin, polywatch, Configure) or in ${r.apiKeyEnv}` });
+  const apiKey = process.env[optionVar] || (r.apiKeyEnv && process.env[r.apiKeyEnv]);
+  if (!apiKey) {
+    const ignored = r.provider === 'anthropic' && !r.apiKeyEnv && process.env.ANTHROPIC_API_KEY ? " (polywatch does not read ANTHROPIC_API_KEY, which is Claude Code's own credential)" : '';
+    return Promise.resolve({ error: `no ${r.provider} API key: set it in the plugin's settings (/plugin, polywatch, Configure)${r.apiKeyEnv ? ` or in ${r.apiKeyEnv}` : ''}${ignored}` });
+  }
   if (r.provider === 'deepseek') return callDeepseek({ model: r.model, baseUrl: r.baseUrl, apiKey, prompt, price: r.price, ...(maxTokens && { maxTokens }) });
   if (r.provider === 'anthropic') return callAnthropic({ model: r.model, apiKey, prompt, price: r.price, effort: r.effort, ...(maxTokens && { maxTokens }) });
   return Promise.resolve({ error: `unknown ${role} provider ${r.provider}` });

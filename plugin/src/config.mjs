@@ -29,7 +29,8 @@ export const DEFAULTS = {
 // Where each provider's key is read from and sent to, unless the user file says otherwise.
 export const PROVIDERS = {
   deepseek: { baseUrl: 'https://api.deepseek.com/v1', apiKeyEnv: 'DEEPSEEK_API_KEY' },
-  anthropic: { apiKeyEnv: 'ANTHROPIC_API_KEY' },
+  anthropic: {},                // no default variable: ANTHROPIC_API_KEY is Claude Code's own credential (when it is set, Claude Code
+                                //   bills the API account instead of the plan); the key comes from the plugin's settings or a variable named here
   'claude-code': {},            // runs `claude -p` on the user's Claude plan; no key
 };
 
@@ -76,6 +77,12 @@ export function loadConfig(cwd) {
       }
     }
     if (dropped.length) warnings.push(`.polywatch.json settings ignored because this project is not trusted: ${dropped.join(', ')}. Set them in ${userConfigPath()}, or add this project to "trustedProjects" there.`);
+  }
+  // exclude only ever adds to the defaults: anything but a list of strings would replace them in merge.
+  for (const [file, name] of [[project, '.polywatch.json'], [user, userConfigPath()]]) {
+    if (file.exclude === undefined) continue;
+    if (!Array.isArray(file.exclude)) { warnings.push(`${name} exclude must be a list of patterns; ignored.`); delete file.exclude; }
+    else if (file.exclude.some(x => typeof x !== 'string')) { warnings.push(`${name} exclude patterns must be strings; the others are ignored.`); file.exclude = file.exclude.filter(x => typeof x === 'string'); }
   }
   for (const k of ['budgetUsdPerTurn', 'budgetUsdPerDay']) {
     // A cap that is not a non-negative number would compare as NaN or coerce to a larger number, so it is dropped.
@@ -142,6 +149,8 @@ export function stateDir(cwd) {
   for (const sub of ['', 'turns', 'jobs', 'results', 'inbox']) mkdirSync(join(d, sub), { recursive: true });
   // The state holds prompts, file contents and review output: keep it out of commits.
   const gi = join(d, '.gitignore');
-  if (!existsSync(gi)) { try { writeFileSync(gi, '*\n'); } catch {} }
+  // A cloned repository may already carry a .polywatch/.gitignore that ignores less; it is replaced.
+  let have = null; try { have = readFileSync(gi, 'utf8'); } catch {}
+  if (have?.trim() !== '*') { try { writeFileSync(gi, '*\n'); } catch {} }
   return d;
 }

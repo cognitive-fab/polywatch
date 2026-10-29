@@ -59,17 +59,20 @@ node <archlens>/skills/archlens/bin/archlens.mjs render polywatch.analysis.json 
 
 ## Install
 
+> **Breaking change in 1.0.0:** polywatch no longer reads the Anthropic key from `ANTHROPIC_API_KEY`. If that is where your key was, reviews stop with "no anthropic API key" until you put the key in the plugin's settings (`/plugin` → polywatch → Configure), or name a variable of your own in `~/.polywatch.json` (below). `ANTHROPIC_API_KEY` is Claude Code's own credential: when it is set, Claude Code bills your API account instead of your plan, so you will usually want to unset it as well. Roles on `"provider": "claude-code"` and the DeepSeek key (`DEEPSEEK_API_KEY`) are unchanged.
+
 ```bash
-# API keys: set them in the plugin's settings (/plugin → polywatch → Configure). Claude Code keeps them in your
-# system credential store. Or, for the CLI and scripts, in your environment (not in the repo). Use your own variable name for the Anthropic key:
-# if ANTHROPIC_API_KEY is set, Claude Code itself uses it and bills your API account instead of your plan.
+# API keys: put them in the plugin's own settings (/plugin → polywatch → Configure), which Claude Code keeps in
+# your system credential store. Not in ANTHROPIC_API_KEY: polywatch does not read it, because when it is set
+# Claude Code itself uses it and bills your API account instead of your plan.
+
+# Optional, for the CLI and scripts: a variable of your own, named in ~/.polywatch.json
+# (polywatch reads no Anthropic variable unless you name one there; DeepSeek's defaults to DEEPSEEK_API_KEY)
 setx POLYWATCH_ANTHROPIC_API_KEY "sk-ant-..."   # reviewer (Haiku 5.5) and confirmation (export ... on macOS/Linux)
 setx POLYWATCH_DEEPSEEK_API_KEY "sk-..."        # only if a reviewer runs on DeepSeek
-
-# ~/.polywatch.json: where the keys are, and (optionally) the folders polywatch may act in
 # { "providers": { "deepseek":  { "apiKeyEnv": "POLYWATCH_DEEPSEEK_API_KEY" },
 #                  "anthropic": { "apiKeyEnv": "POLYWATCH_ANTHROPIC_API_KEY" } },
-#   "onlyUnder": ["C:\\Users\\me\\code"] }
+#   "onlyUnder": ["C:\\Users\\me\\code"] }      # optional: the folders polywatch may act in
 
 # install
 claude plugin marketplace add cognitive-fab/polywatch
@@ -102,9 +105,9 @@ git clone https://github.com/cognitive-fab/polywatch && claude --plugin-dir ./po
 - `exclude` adds patterns to the built-in ones (`.env`, `*.pem`, `*.key`, `*secret*`, `*credential*`, …); it cannot remove them.
 - `compare`: a second reviewer that reads the same turns, for measuring one reviewer against another. Both run at once on the same prompt. A claim both raise (same file, lines within 3) is kept once and counts for both. Opus checks each reviewer's most serious claims, up to `maxClaims` each, so confirmation costs up to twice as much, still within `budgetUsdPerTurn`. With `"sample": "even"` in `compare`, Opus checks the same number of claims from each reviewer drawn without regard to severity (a fixed pseudo-random order), instead of each one's high and medium claims. Use it to compare reviewers: they label severity differently (on one project Haiku marked 5 of 83 claims high and DeepSeek 28 of 84), so the default checks unequal kinds of claim. Findings from both are ranked together, and each records which reviewer raised it, so your `outcome` ratings count for that reviewer. `polywatch stats` then shows the two side by side: claims raised, confirmed, refuted, confirmed claims only one of them raised, shown, rated real or false, cost and time. A project's own file cannot turn it on, since it doubles what is sent out.
 - The reviewer was DeepSeek V4.1-Flash until 0.7.0. Haiku 5.5 now costs about the same per token ($0.10 / $0.50 per million tokens up to a 100,000-token prompt, $0.50 / $2.50 above), and the changed code stays with one provider. It is from the same model family as the code's author, which the original design avoided on purpose; `compare` exists to measure whether that matters.
-- The adjudicator can also run on DeepSeek (`"provider": "deepseek", "model": "deepseek-v4-pro"`). Each provider reads its own key (`DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`).
+- The adjudicator can also run on DeepSeek (`"provider": "deepseek", "model": "deepseek-v4-pro"`). Each provider uses its own key from the plugin's settings.
 - Settings that decide where your keys go or what runs on your machine (`testCommand`, `compare`, and `baseUrl`, `apiKeyEnv` and `price` under `reviewer` or `adjudicator`) are ignored in a project's `.polywatch.json`, because a cloned repository could set them. Put them in `~/.polywatch.json` (same format, applies to every project), or list the project there so its own file may set them: `{ "trustedProjects": ["C:\\Users\\me\\code\\myapp"] }`. Ignored settings and invalid config files are reported when a session starts.
-- User file only: `"onlyUnder": ["C:\\Users\\me\\code"]` limits polywatch to projects inside those folders (elsewhere the hooks do nothing), and `"providers": { "anthropic": { "apiKeyEnv": "POLYWATCH_ANTHROPIC_API_KEY" } }` changes which variable a provider's key is read from. Use that for Anthropic: if `ANTHROPIC_API_KEY` is set globally, Claude Code itself uses it and bills your API account instead of your subscription.
+- User file only: `"onlyUnder": ["C:\\Users\\me\\code"]` limits polywatch to projects inside those folders (elsewhere the hooks do nothing), and `"providers": { "anthropic": { "apiKeyEnv": "POLYWATCH_ANTHROPIC_API_KEY" } }` names the variable a provider's key is read from when it is not in the plugin's settings. DeepSeek's defaults to `DEEPSEEK_API_KEY`. Anthropic's has no default: `ANTHROPIC_API_KEY` is Claude Code's own credential, and set globally it makes Claude Code bill your API account instead of your subscription, so polywatch does not read it.
 - `"provider": "claude-code"` (reviewer or adjudicator) runs the call through `claude -p` on your Claude plan instead of the API, so no Anthropic key is needed: `"adjudicator": { "provider": "claude-code", "model": "claude-opus-5-5" }`. The call runs with `--safe-mode` (no hooks, plugins or CLAUDE.md), `--tools ""` (the model can only answer) and a one-line system prompt, from a temp folder, and without `ANTHROPIC_API_KEY` in its environment. It adds a few seconds of CLI start-up per claim; the cost shown is the list price of the tokens, which on a plan counts toward usage limits rather than money.
 - `price`: `[input, output]` in USD per million tokens, for a model polywatch has no price for (a local server, a new model). Without it, an unknown model is charged at the highest known price so the per-turn budget still holds, and the review says so.
 - `.polywatch/` gets its own `.gitignore`, so prompts, code and review results stay out of commits.
