@@ -2,7 +2,7 @@
 // A project file comes with the repository, so it may not choose where API keys are sent or which
 // shell command runs: those keys are taken only from the user file, or from a project the user file
 // lists under "trustedProjects".
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, lstatSync, unlinkSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -146,11 +146,18 @@ export function projectRoot(start) {
 
 export function stateDir(cwd) {
   const d = join(cwd, '.polywatch');
-  for (const sub of ['', 'turns', 'jobs', 'results', 'inbox']) mkdirSync(join(d, sub), { recursive: true });
+  // A cloned repository could commit .polywatch, or a folder in it, as a link to another place; nothing is written through one.
+  for (const sub of ['', 'turns', 'jobs', 'results', 'inbox']) {
+    const p = join(d, sub);
+    mkdirSync(p, { recursive: true });
+    if (lstatSync(p).isSymbolicLink()) throw new Error(`${p} is a symbolic link; polywatch does not write through it`);
+  }
   // The state holds prompts, file contents and review output: keep it out of commits.
   const gi = join(d, '.gitignore');
-  // A cloned repository may already carry a .polywatch/.gitignore that ignores less; it is replaced.
-  let have = null; try { have = readFileSync(gi, 'utf8'); } catch {}
+  // A cloned repository may already carry a .polywatch/.gitignore that ignores less, or a link in its place; it is replaced.
+  let st = null; try { st = lstatSync(gi); } catch {}
+  if (st?.isSymbolicLink()) { try { unlinkSync(gi); } catch {} st = null; }
+  let have = null; if (st?.isFile()) { try { have = readFileSync(gi, 'utf8'); } catch {} }
   if (have?.trim() !== '*') { try { writeFileSync(gi, '*\n'); } catch {} }
   return d;
 }

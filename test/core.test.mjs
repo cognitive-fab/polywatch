@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, appendFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, appendFileSync, mkdirSync, symlinkSync, lstatSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { features, route } from '../plugin/src/router.mjs';
@@ -188,6 +188,22 @@ test('state: a .polywatch/.gitignore that came with the repository and ignores l
   mkdirSync(join(cwd, '.polywatch'));
   writeFileSync(join(cwd, '.polywatch', '.gitignore'), '*\n!ledger.jsonl\n');
   assert.equal(readFileSync(join(stateDir(cwd), '.gitignore'), 'utf8'), '*\n');
+});
+
+test('state: links a repository commits in .polywatch are not written through', (t) => {
+  const outside = mkdtempSync(join(tmpdir(), 'pwo-'));
+  writeFileSync(join(outside, '.gitignore'), 'keep me\n');
+  const cwd = mkdtempSync(join(tmpdir(), 'pwc-'));
+  try { symlinkSync(outside, join(cwd, '.polywatch'), 'junction'); } catch { return t.skip('cannot create links here'); }
+  assert.throws(() => stateDir(cwd), /symbolic link/);
+  assert.equal(readFileSync(join(outside, '.gitignore'), 'utf8'), 'keep me\n');
+  const cwd2 = mkdtempSync(join(tmpdir(), 'pwc-'));
+  mkdirSync(join(cwd2, '.polywatch'));
+  try { symlinkSync(join(outside, '.gitignore'), join(cwd2, '.polywatch', '.gitignore'), 'file'); } catch { return t.skip('cannot create file links here'); }
+  const gi = join(stateDir(cwd2), '.gitignore');
+  assert.equal(readFileSync(join(outside, '.gitignore'), 'utf8'), 'keep me\n');
+  assert.ok(lstatSync(gi).isFile());
+  assert.equal(readFileSync(gi, 'utf8'), '*\n');
 });
 
 test('config: a project exclude that is not a list of strings cannot drop the built-in patterns', () => {
